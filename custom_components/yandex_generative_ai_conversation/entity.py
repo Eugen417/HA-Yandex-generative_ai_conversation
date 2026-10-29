@@ -191,13 +191,16 @@ class YandexAIBaseLLMEntity(Entity):
         self._attr_name = subentry.title
         self._attr_unique_id = subentry.subentry_id
 
-        model = (
-            subentry.data.get(CONF_CHAT_MODEL)
-            or subentry.data.get(CONF_STT_MODEL)
-            or subentry.data.get(CONF_TTS_VOICE)
-            or subentry.data.get(CONF_IMAGE_MODEL)
-            or default_model
-        )
+        if subentry.subentry_type == "ai_task_image":
+            model = subentry.data.get(CONF_IMAGE_MODEL) or default_model
+        else:
+            model = (
+                subentry.data.get(CONF_CHAT_MODEL)
+                or subentry.data.get(CONF_STT_MODEL)
+                or subentry.data.get(CONF_TTS_VOICE)
+                or subentry.data.get(CONF_IMAGE_MODEL)
+                or default_model
+            )
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,

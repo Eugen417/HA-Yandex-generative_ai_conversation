@@ -28,7 +28,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up AI Task entities."""
     for subentry in config_entry.subentries.values():
-        if subentry.subentry_type != "ai_task_data":
+        if subentry.subentry_type not in ("ai_task_data", "ai_task_image"):
             continue
         async_add_entities(
             [YandexAITaskEntity(config_entry, subentry)],
@@ -41,11 +41,16 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
 
     def __init__(self, entry: ConfigEntry, subentry: ConfigSubentry) -> None:
         """Initialize the entity."""
-        super().__init__(entry, subentry, DEFAULT_CHAT_MODEL)
-        self._attr_supported_features = (
-            ai_task.AITaskEntityFeature.GENERATE_DATA
-            | ai_task.AITaskEntityFeature.GENERATE_IMAGE
+        default_model = (
+            DEFAULT_IMAGE_MODEL
+            if subentry.subentry_type == "ai_task_image"
+            else DEFAULT_CHAT_MODEL
         )
+        super().__init__(entry, subentry, default_model)
+        if subentry.subentry_type == "ai_task_image":
+            self._attr_supported_features = ai_task.AITaskEntityFeature.GENERATE_IMAGE
+        else:
+            self._attr_supported_features = ai_task.AITaskEntityFeature.GENERATE_DATA
 
     @override
     async def _async_generate_data(
@@ -94,87 +99,87 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
         task: ai_task.GenImageTask,
         chat_log: conversation.ChatLog,
     ) -> ai_task.GenImageTaskResult:
-        """Handle a generate image task via YandexART."""
+        """Handle a generate image task via Yandex AI Studio Images API (Alice AI ART)."""
         user_message = chat_log.content[-1]
         assert isinstance(user_message, conversation.UserContent)
 
-        prompt = user_message.content
-        image_model = self.subentry.data.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
+        prompt = user_message.content.strip()
+        if len(prompt) > 500:
+            cut = prompt[:499].rsplit(" ", 1)[0]
+            prompt = f"{cut or prompt[:499]}…"
+
+        image_model = str(
+            self.subentry.data.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
+        ).strip()
+        if not image_model or image_model.startswith("yandex-art"):
+            image_model = DEFAULT_IMAGE_MODEL
+
+        model_uri = (
+            image_model
+            if image_model.startswith("art://")
+            else f"art://{self.folder_id}/{image_model}"
+        )
 
         headers = {
             "Authorization": f"Api-Key {self.api_key}",
             "Content-Type": "application/json",
+            "OpenAI-Project": self.folder_id,
             "x-folder-id": self.folder_id,
         }
 
         payload = {
-            "modelUri": f"art://{self.folder_id}/{image_model}",
-            "generationOptions": {"mimeType": "image/jpeg"},
-            "messages": [{"weight": 1, "text": prompt}],
+            "model": model_uri,
+            "prompt": prompt,
+            "size": "1024x1024",
         }
 
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    "https://llm.api.cloud.yandex.net/foundationModels/v1/imageGenerationAsync",
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
+                    "https://ai.api.cloud.yandex.net/v1/images/generations",
                     headers=headers,
                     json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    if resp.status != 200:
-                        err = await resp.text()
-                        raise HomeAssistantError(
-                            f"Yandex ART Error ({resp.status}): {err}"
-                        )
+                    timeout=aiohttp.ClientTimeout(total=120),
+                ) as resp,
+            ):
+                if resp.status != 200:
+                    err = await resp.text()
+                    raise HomeAssistantError(
+                        f"Alice AI ART Error ({resp.status}): {err}"
+                    )
 
-                    data = await resp.json()
-                    operation_id = data.get("id")
-                    if not operation_id:
-                        raise HomeAssistantError("No operation ID returned")
+                res_data = await resp.json()
+                items = res_data.get("data", [])
+                if not items or not items[0].get("b64_json"):
+                    raise HomeAssistantError(
+                        "Alice AI ART не вернул изображение в поле data[0].b64_json"
+                    )
 
-                for _ in range(60):
-                    await asyncio.sleep(1.0)
-                    async with session.get(
-                        f"https://llm.api.cloud.yandex.net/operations/{operation_id}",
-                        headers=headers,
-                        timeout=aiohttp.ClientTimeout(total=15),
-                    ) as poll_resp:
-                        if poll_resp.status != 200:
-                            err = await poll_resp.text()
-                            raise HomeAssistantError(
-                                f"Poll Error ({poll_resp.status}): {err}"
-                            )
+                image_data = base64.b64decode(items[0]["b64_json"])
+                mime_type = (
+                    "image/jpeg"
+                    if image_data.startswith(b"\xff\xd8")
+                    else "image/png"
+                )
 
-                        poll_data = await poll_resp.json()
-                        if poll_data.get("done"):
-                            if "error" in poll_data:
-                                raise HomeAssistantError(
-                                    f"Generation failed: {poll_data['error']}"
-                                )
+                chat_log.async_add_assistant_content_without_tools(
+                    conversation.AssistantContent(
+                        agent_id=self.entity_id,
+                        content="Изображение сгенерировано.",
+                    )
+                )
 
-                            image_base64 = poll_data.get("response", {}).get("image")
-                            if not image_base64:
-                                raise HomeAssistantError("No image in response")
-
-                            image_data = base64.b64decode(image_base64)
-                            chat_log.async_add_assistant_content_without_tools(
-                                conversation.AssistantContent(
-                                    agent_id=self.entity_id,
-                                    content="Изображение сгенерировано.",
-                                )
-                            )
-
-                            return ai_task.GenImageTaskResult(
-                                image_data=image_data,
-                                conversation_id=chat_log.conversation_id,
-                                mime_type="image/jpeg",
-                                model=image_model.partition("/")[0],
-                            )
-
-                raise HomeAssistantError("Image generation timed out")
+                return ai_task.GenImageTaskResult(
+                    image_data=image_data,
+                    conversation_id=chat_log.conversation_id,
+                    mime_type=mime_type,
+                    model=image_model.partition("/")[0],
+                )
 
         except HomeAssistantError:
             raise
         except Exception as err:
             raise HomeAssistantError(f"Image generation error: {err}") from err
+
 

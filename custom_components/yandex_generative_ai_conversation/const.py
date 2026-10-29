@@ -28,13 +28,14 @@ DEFAULT_STT_NAME = "Yandex AI STT"
 DEFAULT_TTS_NAME = "Yandex AI TTS"
 DEFAULT_AI_TASK_NAME = "Yandex AI Task"
 DEFAULT_AI_TASK_IMAGE_NAME = "Yandex AI Task image"
+DEFAULT_AI_TASK_IMAGE_NAME = "Yandex AI Task image"
 
 DEFAULT_PROMPT = (
     "Ты полезный голосовой помощник для умного дома Home Assistant. "
     "Отвечай кратко, точно и по делу на русском языке."
 )
 DEFAULT_CHAT_MODEL = "yandexgpt/latest"
-DEFAULT_IMAGE_MODEL = "yandex-art/latest"
+DEFAULT_IMAGE_MODEL = "aliceai-image-art-3.0"
 DEFAULT_STT_MODEL = "general"
 DEFAULT_STT_LANGUAGE = "ru-RU"
 
@@ -55,7 +56,7 @@ CHAT_MODELS = [
 ]
 
 IMAGE_MODELS = [
-    "yandex-art/latest",
+    "aliceai-image-art-3.0",
 ]
 
 STT_MODELS = [
@@ -160,9 +161,12 @@ RECOMMENDED_TTS_OPTIONS: dict[str, Any] = {
 RECOMMENDED_AI_TASK_OPTIONS: dict[str, Any] = {
     CONF_RECOMMENDED: True,
     CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
-    CONF_IMAGE_MODEL: DEFAULT_IMAGE_MODEL,
     CONF_TEMPERATURE: RECOMMENDED_TEMPERATURE,
     CONF_MAX_TOKENS: RECOMMENDED_MAX_TOKENS,
+}
+
+RECOMMENDED_AI_TASK_IMAGE_OPTIONS: dict[str, Any] = {
+    CONF_IMAGE_MODEL: DEFAULT_IMAGE_MODEL,
 }
 
 PLATFORMS = [

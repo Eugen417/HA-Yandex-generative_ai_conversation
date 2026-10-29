@@ -21,9 +21,11 @@ from .const import (
     CONF_TTS_EMOTION,
     CONF_TTS_SPEED,
     CONF_TTS_VOICE,
+    DEFAULT_AI_TASK_IMAGE_NAME,
     DEFAULT_AI_TASK_NAME,
     DEFAULT_CHAT_MODEL,
     DEFAULT_CONVERSATION_NAME,
+    DEFAULT_IMAGE_MODEL,
     DEFAULT_PROMPT,
     DEFAULT_STT_NAME,
     DEFAULT_TTS_EMOTION,
@@ -32,6 +34,7 @@ from .const import (
     DEFAULT_TTS_VOICE,
     DOMAIN,
     PLATFORMS,
+    RECOMMENDED_AI_TASK_IMAGE_OPTIONS,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_STT_OPTIONS,
@@ -144,6 +147,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 hass.config_entries.async_update_subentry(
                     entry, sub, data=dict(RECOMMENDED_AI_TASK_OPTIONS)
                 )
+
+    if "ai_task_image" not in existing_types:
+        hass.config_entries.async_add_subentry(
+            entry,
+            ConfigSubentry(
+                data=MappingProxyType(RECOMMENDED_AI_TASK_IMAGE_OPTIONS),
+                subentry_type="ai_task_image",
+                title=DEFAULT_AI_TASK_IMAGE_NAME,
+                unique_id=None,
+            ),
+        )
+    else:
+        for sub in list(entry.subentries.values()):
+            if sub.subentry_type == "ai_task_image":
+                if not sub.data or str(sub.data.get("image_model", "")).startswith(
+                    "yandex-art"
+                ):
+                    hass.config_entries.async_update_subentry(
+                        entry,
+                        sub,
+                        data=dict(RECOMMENDED_AI_TASK_IMAGE_OPTIONS),
+                    )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_update_options))

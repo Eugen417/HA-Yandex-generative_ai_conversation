@@ -44,6 +44,7 @@ from .const import (
     CONF_TTS_EMOTION,
     CONF_TTS_SPEED,
     CONF_TTS_VOICE,
+    DEFAULT_AI_TASK_IMAGE_NAME,
     DEFAULT_AI_TASK_NAME,
     DEFAULT_CHAT_MODEL,
     DEFAULT_CONVERSATION_NAME,
@@ -59,6 +60,7 @@ from .const import (
     DEFAULT_TTS_VOICE,
     DOMAIN,
     IMAGE_MODELS,
+    RECOMMENDED_AI_TASK_IMAGE_OPTIONS,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_MAX_TOKENS,
@@ -104,6 +106,12 @@ class YandexAIConfigFlow(ConfigFlow, domain=DOMAIN):
                         "unique_id": None,
                     },
                     {
+                        "subentry_type": "ai_task_image",
+                        "data": RECOMMENDED_AI_TASK_IMAGE_OPTIONS,
+                        "title": DEFAULT_AI_TASK_IMAGE_NAME,
+                        "unique_id": None,
+                    },
+                    {
                         "subentry_type": "stt",
                         "data": RECOMMENDED_STT_OPTIONS,
                         "title": DEFAULT_STT_NAME,
@@ -137,6 +145,7 @@ class YandexAIConfigFlow(ConfigFlow, domain=DOMAIN):
             "stt": YandexAISubentryFlowHandler,
             "tts": YandexAISubentryFlowHandler,
             "ai_task_data": YandexAISubentryFlowHandler,
+            "ai_task_image": YandexAISubentryFlowHandler,
         }
 
 
@@ -165,6 +174,8 @@ class YandexAISubentryFlowHandler(ConfigSubentryFlow):
                     options = RECOMMENDED_STT_OPTIONS.copy()
                 elif self._subentry_type == "ai_task_data":
                     options = RECOMMENDED_AI_TASK_OPTIONS.copy()
+                elif self._subentry_type == "ai_task_image":
+                    options = RECOMMENDED_AI_TASK_IMAGE_OPTIONS.copy()
                 else:
                     options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
             else:
@@ -211,6 +222,8 @@ def _yandex_config_option_schema(
             default_name = DEFAULT_STT_NAME
         elif subentry_type == "ai_task_data":
             default_name = DEFAULT_AI_TASK_NAME
+        elif subentry_type == "ai_task_image":
+            default_name = DEFAULT_AI_TASK_IMAGE_NAME
         else:
             default_name = DEFAULT_CONVERSATION_NAME
         schema: dict[Any, Any] = {
@@ -387,16 +400,6 @@ def _yandex_config_option_schema(
                     )
                 ),
                 vol.Optional(
-                    CONF_IMAGE_MODEL,
-                    default=options.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL),
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        options=image_model_choices,
-                        mode=SelectSelectorMode.DROPDOWN,
-                        custom_value=True,
-                    )
-                ),
-                vol.Optional(
                     CONF_TEMPERATURE,
                     default=options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
                 ): NumberSelector(
@@ -410,6 +413,21 @@ def _yandex_config_option_schema(
                 ): NumberSelector(
                     NumberSelectorConfig(
                         min=100, max=8000, step=100, mode=NumberSelectorMode.BOX
+                    )
+                ),
+            }
+        )
+    elif subentry_type == "ai_task_image":
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_IMAGE_MODEL,
+                    default=options.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=image_model_choices,
+                        mode=SelectSelectorMode.DROPDOWN,
+                        custom_value=True,
                     )
                 ),
             }

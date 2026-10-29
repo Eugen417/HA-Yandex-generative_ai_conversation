@@ -3,6 +3,7 @@
 </p>
 
 <h1 align="center">Yandex AI Studio Integration for Home Assistant</h1>
+<h2 align="center">Сделай свой умный дом по настоящему умным с Яндекс!</h2>
 
 <p align="center">
   <a href="https://github.com/hacs/integration"><img alt="hacs_badge" src="https://img.shields.io/badge/HACS-Custom-orange.svg" /></a>

@@ -61,12 +61,20 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
         ):
             raise HomeAssistantError("Failed to get response from Yandex AI Studio")
 
-        text = chat_log.content[-1].content or ""
+        text = (chat_log.content[-1].content or "").strip()
         if not task.structure:
             return ai_task.GenDataTaskResult(
                 conversation_id=chat_log.conversation_id,
                 data=text,
             )
+
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines and lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
 
         try:
             data = json_loads(text)

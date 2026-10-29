@@ -34,6 +34,58 @@ _LOGGER = logging.getLogger(__name__)
 MAX_TOOL_ITERATIONS = 10
 
 
+def _normalize_yandex_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Normalize JSON Schema for Yandex Foundation Models strict jsonSchema."""
+    if not isinstance(schema, dict):
+        return schema
+
+    for key in (
+        "default",
+        "examples",
+        "$comment",
+        "deprecated",
+        "readOnly",
+        "writeOnly",
+        "uniqueItems",
+    ):
+        schema.pop(key, None)
+
+    if schema.get("format") in {
+        "entity_id",
+        "jinja2",
+        "RFC 5646",
+        "ISO 3166-1 alpha-2",
+        "RGB",
+    }:
+        schema.pop("format", None)
+
+    for def_key in ("$defs", "definitions"):
+        if isinstance(defs := schema.get(def_key), dict):
+            for v in defs.values():
+                if isinstance(v, dict):
+                    _normalize_yandex_json_schema(v)
+
+    for list_key in ("anyOf", "oneOf", "allOf"):
+        if isinstance(variants := schema.get(list_key), list):
+            for variant in variants:
+                if isinstance(variant, dict):
+                    _normalize_yandex_json_schema(variant)
+
+    if "properties" in schema and isinstance(schema["properties"], dict):
+        schema["type"] = "object"
+        schema["additionalProperties"] = False
+        props = schema["properties"]
+        schema["required"] = list(props.keys())
+        for prop_schema in props.values():
+            if isinstance(prop_schema, dict):
+                _normalize_yandex_json_schema(prop_schema)
+
+    if "items" in schema and isinstance(schema["items"], dict):
+        _normalize_yandex_json_schema(schema["items"])
+
+    return schema
+
+
 def _format_tool(
     tool: llm.Tool, custom_serializer: Callable[[Any], Any] | None
 ) -> dict[str, Any]:
@@ -202,7 +254,9 @@ class YandexAIBaseLLMEntity(Entity):
                             else llm.selector_serializer
                         ),
                     )
-                    payload["jsonSchema"] = {"schema": schema}
+                    payload["jsonSchema"] = {
+                        "schema": _normalize_yandex_json_schema(schema)
+                    }
                 except Exception as err:  # noqa: BLE001
                     _LOGGER.debug("Failed to build jsonSchema: %s", err)
 

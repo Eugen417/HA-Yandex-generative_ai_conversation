@@ -45,7 +45,6 @@
 
 <p align="center">
   <img width="750" alt="Создание сервисного аккаунта и назначение ролей" src="images/yc_service_account.png" />
-  <img width="750" alt="Создание сервисного аккаунта и назначение ролей" src="images/yc_service_account-1.png" />
 </p>
 
 ---

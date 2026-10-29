@@ -59,7 +59,7 @@
 ### Вариант 2: Ручная установка
 
 1. Скачайте этот репозиторий (ZIP-архив).
-2. Скопируйте папку `custom_components/Yandex-generative_ai_conversation` в директорию `/config/custom_components/` вашего Home Assistant.
+2. Скопируйте папку `custom_components/yandex_generative_ai_conversation` в директорию `/config/custom_components/` вашего Home Assistant.
 3. **Перезагрузите Home Assistant**.
 
 
@@ -183,9 +183,10 @@ response_variable: summary
 HA-Yandex-generative_ai_conversation/
 ├── .github/workflows/          # GitHub Actions (Hassfest & HACS Validation, Release)
 ├── custom_components/
-│   └── Yandex-generative_ai_conversation/
+│   └── yandex_generative_ai_conversation/
 │       ├── __init__.py         # Инициализация интеграции и управление Subentries
 │       ├── ai_task.py          # Платформа AI Task (YandexGPT + YandexART)
+│       ├── brand/              # Локальные иконки и логотипы интеграции (icon.png, logo.png)
 │       ├── config_flow.py      # Мастер настройки и ConfigSubentryFlow
 │       ├── const.py            # Константы, модели и список голосов/эмоций
 │       ├── conversation.py     # Диалоговый агент для Assist

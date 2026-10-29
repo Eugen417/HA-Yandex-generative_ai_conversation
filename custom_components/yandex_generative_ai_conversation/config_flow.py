@@ -353,6 +353,9 @@ def _yandex_config_option_schema(
             SelectOptionDict(label="Радостный (good)", value="good"),
             SelectOptionDict(label="Нейтральный (neutral)", value="neutral"),
             SelectOptionDict(label="Раздраженный (evil)", value="evil"),
+            SelectOptionDict(label="Дружелюбный (friendly — v3)", value="friendly"),
+            SelectOptionDict(label="Строгий (strict — v3)", value="strict"),
+            SelectOptionDict(label="Шёпот (whisper — v3)", value="whisper"),
         ]
         schema.update(
             {

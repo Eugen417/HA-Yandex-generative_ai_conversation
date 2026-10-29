@@ -12,11 +12,12 @@
 
 Полнофункциональная интеграция **Yandex AI Studio (YandexGPT, YandexART и Yandex SpeechKit)** для **Home Assistant**, построенная по современной сервисной архитектуре `ConfigSubentry` и `ChatLog` (аналогично официальным интеграциям **Google Gemini** и **Ollama** в Home Assistant 2026).
 
-Интеграция объединяет в одном подключении сразу **4 независимые ИИ-службы** для голосового ассистента **Assist** и автоматизаций умного дома:
-1. 💬 **Диалоговая система (Conversation)** на базе **YandexGPT / AliceAI / Qwen3** с полноценным управлением умным домом (Tool Calling).
-2. 🎙 **Распознавание речи (STT)** на базе **Yandex SpeechKit**.
-3. 🔊 **Синтез речи (TTS)** на базе **Yandex SpeechKit** с выбором языка, голоса, эмоций (амплуа) и скорости речи.
-4. 🎨 **Задачи ИИ (AI Task)** — генерация текста/структурированных JSON-данных (**YandexGPT**) и генерация изображений (**YandexART**).
+Интеграция объединяет в одном подключении сразу **5 независимых ИИ-служб** для голосового ассистента **Assist** и автоматизаций умного дома:
+1. 💬 **Диалоговая система (`Yandex AI Conversation`)** на базе **YandexGPT / AliceAI / Qwen3** с полноценным управлением умным домом (Tool Calling).
+2. 🎙 **Распознавание речи (`Yandex AI STT`)** на базе **Yandex SpeechKit**.
+3. 🔊 **Синтез речи (`Yandex AI TTS`)** на базе **Yandex SpeechKit** с выбором языка, голоса, эмоций (амплуа) и скорости речи.
+4. 🧠 **Задача ИИ — текст и данные (`Yandex AI Task`)** — генерация текста и структурированных JSON-данных на базе **YandexGPT**.
+5. 🎨 **Задача ИИ — генерация изображений (`Yandex AI Task image`)** — создание изображений на базе **Alice AI ART (`aliceai-image-art-3.0`)**.
 
 <p align="center">
   <img width="800" alt="Общий вид служб Yandex AI Studio в Home Assistant" src="images/services_overview.png" />
@@ -151,14 +152,16 @@
 
 ## 🎨 Использование AI Task (Генерация картинок и данных)
 
-Служба **Yandex AI Task** предоставляет сущность `ai_task.yandex_ai_task`, которую можно вызывать в автоматизациях и скриптах Home Assistant:
+Интеграция создаёт две отдельные специализированные службы (по аналогии с Google Gemini):
+- **`Yandex AI Task`** (`ai_task.yandex_ai_task`) — для генерации текста и структурированных данных (`ai_task.generate_data`) через **YandexGPT**.
+- **`Yandex AI Task image`** (`ai_task.yandex_ai_task_image`) — для генерации изображений (`ai_task.generate_image`) через **Alice AI ART (`aliceai-image-art-3.0`)**.
 
-### Пример 1: Генерация изображения через YandexART (`ai_task.generate_image`)
+### Пример 1: Генерация изображения через Alice AI ART (`ai_task.generate_image`)
 
 ```yaml
 action: ai_task.generate_image
 data:
-  entity_id: ai_task.yandex_ai_task
+  entity_id: ai_task.yandex_ai_task_image
   task_name: "Погода на сегодня"
   instructions: "Уютный умный дом в осеннем лесу, мягкий тёплый свет в окнах, кинематографичный стиль"
 response_variable: generated_image

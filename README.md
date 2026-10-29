@@ -1,8 +1,14 @@
-# 🤖 Yandex AI Studio Integration for Home Assistant
+<p align="center">
+  <img width="160" alt="Yandex AI Studio Logo" src="images/logo.png" />
+</p>
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.7%2B%20%7C%202026.x-blue.svg)](https://www.home-assistant.io/)
+<h1 align="center">Yandex AI Studio Integration for Home Assistant</h1>
+
+<p align="center">
+  <a href="https://github.com/hacs/integration"><img alt="hacs_badge" src="https://img.shields.io/badge/HACS-Custom-orange.svg" /></a>
+  <a href="https://opensource.org/licenses/MIT"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a>
+  <a href="https://www.home-assistant.io/"><img alt="Home Assistant" src="https://img.shields.io/badge/Home%20Assistant-2025.7%2B%20%7C%202026.x-blue.svg" /></a>
+</p>
 
 Полнофункциональная интеграция **Yandex AI Studio (YandexGPT, YandexART и Yandex SpeechKit)** для **Home Assistant**, построенная по современной сервисной архитектуре `ConfigSubentry` и `ChatLog` (аналогично официальным интеграциям **Google Gemini** и **Ollama** в Home Assistant 2026).
 

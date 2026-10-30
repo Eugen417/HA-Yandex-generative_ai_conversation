@@ -32,6 +32,7 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
+    CHAT_MODEL_LABELS,
     CHAT_MODELS,
     CONF_CHAT_MODEL,
     CONF_FOLDER_ID,
@@ -59,6 +60,7 @@ from .const import (
     DEFAULT_TTS_SPEED,
     DEFAULT_TTS_VOICE,
     DOMAIN,
+    IMAGE_MODEL_LABELS,
     IMAGE_MODELS,
     RECOMMENDED_AI_TASK_IMAGE_OPTIONS,
     RECOMMENDED_AI_TASK_OPTIONS,
@@ -154,6 +156,8 @@ class YandexAIConfigFlow(ConfigFlow, domain=DOMAIN):
 class YandexAISubentryFlowHandler(ConfigSubentryFlow):
     """Flow for managing Yandex AI Studio subentries."""
 
+    last_rendered_recommended: bool = True
+
     @property
     def _is_new(self) -> bool:
         """Return if this is a new subentry."""
@@ -180,9 +184,40 @@ class YandexAISubentryFlowHandler(ConfigSubentryFlow):
                     options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
             else:
                 options = self._get_reconfigure_subentry().data.copy()
+
+            self.last_rendered_recommended = bool(
+                options.get(CONF_RECOMMENDED, True)
+            )
         else:
+            if (
+                CONF_RECOMMENDED in user_input
+                and bool(user_input[CONF_RECOMMENDED]) != self.last_rendered_recommended
+            ):
+                self.last_rendered_recommended = bool(user_input[CONF_RECOMMENDED])
+                base_opts = (
+                    {}
+                    if self._is_new
+                    else self._get_reconfigure_subentry().data.copy()
+                )
+                options = {**base_opts, **user_input}
+                schema = _yandex_config_option_schema(
+                    self.hass, self._is_new, self._subentry_type, options
+                )
+                return self.async_show_form(
+                    step_id="set_options",
+                    data_schema=vol.Schema(schema),
+                )
+
             if user_input.get(CONF_LLM_HASS_API) is None:
                 user_input.pop(CONF_LLM_HASS_API, None)
+
+            if user_input.get(CONF_RECOMMENDED):
+                if self._subentry_type in ("conversation", "ai_task_data"):
+                    user_input[CONF_CHAT_MODEL] = DEFAULT_CHAT_MODEL
+                    user_input[CONF_TEMPERATURE] = RECOMMENDED_TEMPERATURE
+                    user_input[CONF_MAX_TOKENS] = RECOMMENDED_MAX_TOKENS
+                elif self._subentry_type == "ai_task_image":
+                    user_input[CONF_IMAGE_MODEL] = DEFAULT_IMAGE_MODEL
 
             if self._is_new:
                 return self.async_create_entry(
@@ -232,8 +267,14 @@ def _yandex_config_option_schema(
     else:
         schema = {}
 
-    chat_model_choices = [SelectOptionDict(label=m, value=m) for m in CHAT_MODELS]
-    image_model_choices = [SelectOptionDict(label=m, value=m) for m in IMAGE_MODELS]
+    chat_model_choices = [
+        SelectOptionDict(label=CHAT_MODEL_LABELS.get(m, m), value=m)
+        for m in CHAT_MODELS
+    ]
+    image_model_choices = [
+        SelectOptionDict(label=IMAGE_MODEL_LABELS.get(m, m), value=m)
+        for m in IMAGE_MODELS
+    ]
 
     if subentry_type == "conversation":
         hass_apis = [
@@ -268,34 +309,39 @@ def _yandex_config_option_schema(
                     CONF_RECOMMENDED,
                     default=options.get(CONF_RECOMMENDED, True),
                 ): BooleanSelector(),
-                vol.Optional(
-                    CONF_CHAT_MODEL,
-                    default=options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL),
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        options=chat_model_choices,
-                        mode=SelectSelectorMode.DROPDOWN,
-                        custom_value=True,
-                    )
-                ),
-                vol.Optional(
-                    CONF_TEMPERATURE,
-                    default=options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0.0, max=1.0, step=0.05, mode=NumberSelectorMode.SLIDER
-                    )
-                ),
-                vol.Optional(
-                    CONF_MAX_TOKENS,
-                    default=options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=100, max=8000, step=100, mode=NumberSelectorMode.BOX
-                    )
-                ),
             }
         )
+        if not options.get(CONF_RECOMMENDED, True):
+            schema.update(
+                {
+                    vol.Optional(
+                        CONF_CHAT_MODEL,
+                        default=options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=chat_model_choices,
+                            mode=SelectSelectorMode.DROPDOWN,
+                            custom_value=True,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_TEMPERATURE,
+                        default=options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0.0, max=1.0, step=0.05, mode=NumberSelectorMode.SLIDER
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_MAX_TOKENS,
+                        default=options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=100, max=8000, step=100, mode=NumberSelectorMode.BOX
+                        )
+                    ),
+                }
+            )
 
     elif subentry_type == "stt":
         stt_model_choices = [SelectOptionDict(label=m, value=m) for m in STT_MODELS]
@@ -392,49 +438,63 @@ def _yandex_config_option_schema(
                     CONF_RECOMMENDED,
                     default=options.get(CONF_RECOMMENDED, True),
                 ): BooleanSelector(),
-                vol.Optional(
-                    CONF_CHAT_MODEL,
-                    default=options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL),
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        options=chat_model_choices,
-                        mode=SelectSelectorMode.DROPDOWN,
-                        custom_value=True,
-                    )
-                ),
-                vol.Optional(
-                    CONF_TEMPERATURE,
-                    default=options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0.0, max=1.0, step=0.05, mode=NumberSelectorMode.SLIDER
-                    )
-                ),
-                vol.Optional(
-                    CONF_MAX_TOKENS,
-                    default=options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=100, max=8000, step=100, mode=NumberSelectorMode.BOX
-                    )
-                ),
             }
         )
+        if not options.get(CONF_RECOMMENDED, True):
+            schema.update(
+                {
+                    vol.Optional(
+                        CONF_CHAT_MODEL,
+                        default=options.get(CONF_CHAT_MODEL, DEFAULT_CHAT_MODEL),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=chat_model_choices,
+                            mode=SelectSelectorMode.DROPDOWN,
+                            custom_value=True,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_TEMPERATURE,
+                        default=options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=0.0, max=1.0, step=0.05, mode=NumberSelectorMode.SLIDER
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_MAX_TOKENS,
+                        default=options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=100, max=8000, step=100, mode=NumberSelectorMode.BOX
+                        )
+                    ),
+                }
+            )
     elif subentry_type == "ai_task_image":
         schema.update(
             {
                 vol.Optional(
-                    CONF_IMAGE_MODEL,
-                    default=options.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL),
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        options=image_model_choices,
-                        mode=SelectSelectorMode.DROPDOWN,
-                        custom_value=True,
-                    )
-                ),
+                    CONF_RECOMMENDED,
+                    default=options.get(CONF_RECOMMENDED, True),
+                ): BooleanSelector(),
             }
         )
+        if not options.get(CONF_RECOMMENDED, True):
+            schema.update(
+                {
+                    vol.Optional(
+                        CONF_IMAGE_MODEL,
+                        default=options.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL),
+                    ): SelectSelector(
+                        SelectSelectorConfig(
+                            options=image_model_choices,
+                            mode=SelectSelectorMode.DROPDOWN,
+                            custom_value=True,
+                        )
+                    ),
+                }
+            )
 
     return schema
 

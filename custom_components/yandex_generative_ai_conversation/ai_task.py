@@ -15,7 +15,12 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.json import json_loads
 
-from .const import CONF_IMAGE_MODEL, DEFAULT_CHAT_MODEL, DEFAULT_IMAGE_MODEL
+from .const import (
+    CONF_IMAGE_MODEL,
+    CONF_RECOMMENDED,
+    DEFAULT_CHAT_MODEL,
+    DEFAULT_IMAGE_MODEL,
+)
 from .entity import YandexAIBaseLLMEntity
 
 _LOGGER = logging.getLogger(__name__)
@@ -108,9 +113,12 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
             cut = prompt[:499].rsplit(" ", 1)[0]
             prompt = f"{cut or prompt[:499]}…"
 
-        image_model = str(
-            self.subentry.data.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
-        ).strip()
+        if self.subentry.data.get(CONF_RECOMMENDED):
+            image_model = DEFAULT_IMAGE_MODEL
+        else:
+            image_model = str(
+                self.subentry.data.get(CONF_IMAGE_MODEL, DEFAULT_IMAGE_MODEL)
+            ).strip()
         if not image_model or image_model.startswith("yandex-art"):
             image_model = DEFAULT_IMAGE_MODEL
 

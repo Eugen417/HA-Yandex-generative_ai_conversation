@@ -21,6 +21,7 @@ from .const import (
     CONF_FOLDER_ID,
     CONF_IMAGE_MODEL,
     CONF_MAX_TOKENS,
+    CONF_RECOMMENDED,
     CONF_STT_MODEL,
     CONF_TEMPERATURE,
     CONF_TTS_VOICE,
@@ -191,7 +192,9 @@ class YandexAIBaseLLMEntity(Entity):
         self._attr_name = subentry.title
         self._attr_unique_id = subentry.subentry_id
 
-        if subentry.subentry_type == "ai_task_image":
+        if subentry.data.get(CONF_RECOMMENDED):
+            model = default_model
+        elif subentry.subentry_type == "ai_task_image":
             model = subentry.data.get(CONF_IMAGE_MODEL) or default_model
         else:
             model = (
@@ -216,9 +219,14 @@ class YandexAIBaseLLMEntity(Entity):
     ) -> None:
         """Generate an answer for the chat log."""
         options = self.subentry.data
-        model_name = options.get(CONF_CHAT_MODEL, self.default_model)
-        temperature = float(options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE))
-        max_tokens = int(options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS))
+        if options.get(CONF_RECOMMENDED):
+            model_name = self.default_model
+            temperature = float(RECOMMENDED_TEMPERATURE)
+            max_tokens = int(RECOMMENDED_MAX_TOKENS)
+        else:
+            model_name = options.get(CONF_CHAT_MODEL, self.default_model)
+            temperature = float(options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE))
+            max_tokens = int(options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS))
 
         tools: list[dict[str, Any]] | None = None
         if chat_log.llm_api:

@@ -34,7 +34,7 @@ DEFAULT_PROMPT = (
     "Ты полезный голосовой помощник для умного дома Home Assistant. "
     "Отвечай кратко, точно и по делу на русском языке."
 )
-DEFAULT_CHAT_MODEL = "yandexgpt/latest"
+DEFAULT_CHAT_MODEL = "yandexgpt-lite/latest"
 DEFAULT_IMAGE_MODEL = "aliceai-image-art-3.0"
 DEFAULT_STT_MODEL = "general"
 DEFAULT_STT_LANGUAGE = "ru-RU"
@@ -47,17 +47,30 @@ DEFAULT_TTS_EMOTION = "good"
 DEFAULT_TTS_SPEED = 1.0
 
 CHAT_MODELS = [
-    "yandexgpt/latest",
     "yandexgpt-lite/latest",
-    "yandexgpt/rc",
-    "yandexgpt-lite/rc",
     "aliceai-llm/latest",
     "qwen3-235b-a22b-fp8/latest",
+    "yandexgpt/latest",
+    "yandexgpt-lite/rc",
+    "yandexgpt/rc",
 ]
+
+CHAT_MODEL_LABELS: dict[str, str] = {
+    "yandexgpt-lite/latest": "YandexGPT Lite (0.20 ₽ / 1K токенов — быстрая и экономная)",
+    "aliceai-llm/latest": "Alice AI LLM (0.50 ₽ / 1K токенов — диалоговая)",
+    "qwen3-235b-a22b-fp8/latest": "Qwen3 235B (0.50 ₽ / 1K токенов)",
+    "yandexgpt/latest": "YandexGPT Pro (1.20 ₽ / 1K токенов — максимальная)",
+    "yandexgpt-lite/rc": "YandexGPT Lite RC (0.20 ₽ / 1K токенов)",
+    "yandexgpt/rc": "YandexGPT Pro RC (1.20 ₽ / 1K токенов)",
+}
 
 IMAGE_MODELS = [
     "aliceai-image-art-3.0",
 ]
+
+IMAGE_MODEL_LABELS: dict[str, str] = {
+    "aliceai-image-art-3.0": "Alice AI ART 3.0 (2.23 ₽ / изображение)",
+}
 
 STT_MODELS = [
     "general",
@@ -178,6 +191,7 @@ RECOMMENDED_AI_TASK_OPTIONS: dict[str, Any] = {
 }
 
 RECOMMENDED_AI_TASK_IMAGE_OPTIONS: dict[str, Any] = {
+    CONF_RECOMMENDED: True,
     CONF_IMAGE_MODEL: DEFAULT_IMAGE_MODEL,
 }
 

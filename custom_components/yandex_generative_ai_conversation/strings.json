@@ -112,6 +112,7 @@
         "set_options": {
           "data": {
             "name": "Name",
+            "recommended": "Recommended model settings",
             "image_model": "Image Generation Model (Alice AI ART)"
           }
         }

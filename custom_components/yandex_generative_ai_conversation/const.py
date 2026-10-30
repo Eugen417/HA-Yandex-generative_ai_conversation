@@ -31,10 +31,11 @@ DEFAULT_AI_TASK_IMAGE_NAME = "Yandex AI Task image"
 DEFAULT_AI_TASK_IMAGE_NAME = "Yandex AI Task image"
 
 DEFAULT_PROMPT = (
-    "Ты полезный голосовой помощник для умного дома Home Assistant. "
-    "Отвечай кратко, точно и по делу на русском языке."
+    "Ты голосовой помощник для Home Assistant.\n"
+    "Отвечай правдиво на вопросы об окружающем мире.\n"
+    "Отвечай просто, кратко и по делу обычным текстом на русском языке."
 )
-DEFAULT_CHAT_MODEL = "yandexgpt-lite/latest"
+DEFAULT_CHAT_MODEL = "yandexgpt/latest"
 DEFAULT_IMAGE_MODEL = "aliceai-image-art-3.0"
 DEFAULT_STT_MODEL = "general"
 DEFAULT_STT_LANGUAGE = "ru-RU"
@@ -47,21 +48,21 @@ DEFAULT_TTS_EMOTION = "good"
 DEFAULT_TTS_SPEED = 1.0
 
 CHAT_MODELS = [
+    "yandexgpt/latest",
     "yandexgpt-lite/latest",
     "aliceai-llm/latest",
     "qwen3-235b-a22b-fp8/latest",
-    "yandexgpt/latest",
-    "yandexgpt-lite/rc",
     "yandexgpt/rc",
+    "yandexgpt-lite/rc",
 ]
 
 CHAT_MODEL_LABELS: dict[str, str] = {
-    "yandexgpt-lite/latest": "YandexGPT Lite (0.20 ₽ / 1K токенов — быстрая и экономная)",
-    "aliceai-llm/latest": "Alice AI LLM (0.50 ₽ / 1K токенов — диалоговая)",
-    "qwen3-235b-a22b-fp8/latest": "Qwen3 235B (0.50 ₽ / 1K токенов)",
-    "yandexgpt/latest": "YandexGPT Pro (1.20 ₽ / 1K токенов — максимальная)",
-    "yandexgpt-lite/rc": "YandexGPT Lite RC (0.20 ₽ / 1K токенов)",
-    "yandexgpt/rc": "YandexGPT Pro RC (1.20 ₽ / 1K токенов)",
+    "yandexgpt/latest": "YandexGPT Pro (1.20 ₽ / 1K — рекомендуется для управления УД)",
+    "yandexgpt-lite/latest": "YandexGPT Lite (0.20 ₽ / 1K — для текста и AI Task, без сложного управления)",
+    "aliceai-llm/latest": "Alice AI LLM (0.50 ₽ / 1K — диалоговая)",
+    "qwen3-235b-a22b-fp8/latest": "Qwen3 235B (0.50 ₽ / 1K)",
+    "yandexgpt/rc": "YandexGPT Pro RC (1.20 ₽ / 1K)",
+    "yandexgpt-lite/rc": "YandexGPT Lite RC (0.20 ₽ / 1K)",
 }
 
 IMAGE_MODELS = [
@@ -200,5 +201,6 @@ PLATFORMS = [
     Platform.STT,
     Platform.TTS,
     Platform.AI_TASK,
+    Platform.SENSOR,
 ]
 

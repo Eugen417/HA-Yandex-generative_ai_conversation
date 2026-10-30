@@ -16,6 +16,7 @@ from homeassistant.components.tts import (
 )
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
@@ -25,6 +26,7 @@ from .const import (
     DEFAULT_TTS_EMOTION,
     DEFAULT_TTS_SPEED,
     DEFAULT_TTS_VOICE,
+    DOMAIN,
     TTS_LANGUAGES,
     TTS_VOICES,
 )
@@ -165,6 +167,17 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
             ):
                 if resp.status == 200:
                     audio = await resp.read()
+                    if self.hass is not None:
+                        chars = len(message)
+                        async_dispatcher_send(
+                            self.hass,
+                            f"{DOMAIN}_usage_{self.subentry.subentry_id}",
+                            {
+                                "chars": chars,
+                                "cost_rub": chars * 1.32 / 1000.0,
+                                "model": voice,
+                            },
+                        )
                     return ("ogg", audio)
                 text = await resp.text()
                 _LOGGER.error("Yandex TTS v1 failed (%s): %s %s", voice, resp.status, text)
@@ -239,6 +252,17 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
                         audio_chunks.append(base64.b64decode(b64_data))
 
                 if audio_chunks:
+                    if self.hass is not None:
+                        chars = len(message)
+                        async_dispatcher_send(
+                            self.hass,
+                            f"{DOMAIN}_usage_{self.subentry.subentry_id}",
+                            {
+                                "chars": chars,
+                                "cost_rub": chars * 1.32 / 1000.0,
+                                "model": voice,
+                            },
+                        )
                     return ("mp3", b"".join(audio_chunks))
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Yandex TTS v3 exception: %s", err)

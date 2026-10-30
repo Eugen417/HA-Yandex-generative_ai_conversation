@@ -92,10 +92,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     else:
         for sub in list(entry.subentries.values()):
             if sub.subentry_type == "conversation":
-                api_val = sub.data.get(CONF_LLM_HASS_API)
-                if api_val in (None, [], "none", ["none"]):
-                    new_data = dict(sub.data)
+                new_data = dict(sub.data)
+                changed = False
+                api_val = new_data.get(CONF_LLM_HASS_API)
+                if api_val in ("none", ["none"]) or (
+                    isinstance(api_val, list) and len(api_val) > 1
+                ):
                     new_data[CONF_LLM_HASS_API] = [llm.LLM_API_ASSIST]
+                    changed = True
+                if str(new_data.get(CONF_CHAT_MODEL, "")).startswith("yandexgpt-lite"):
+                    new_data[CONF_CHAT_MODEL] = DEFAULT_CHAT_MODEL
+                    changed = True
+                if changed:
                     hass.config_entries.async_update_subentry(entry, sub, data=new_data)
 
     if "stt" not in existing_types:
@@ -171,6 +179,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Ensure device registry model labels match current subentry models
+    for sub in entry.subentries.values():
+        if dev := device_registry.async_get_device(
+            identifiers={(DOMAIN, sub.subentry_id)}
+        ):
+            if sub.subentry_type == "ai_task_image":
+                dev_model = str(sub.data.get("image_model") or DEFAULT_IMAGE_MODEL)
+            elif sub.subentry_type == "stt":
+                dev_model = str(sub.data.get("stt_model") or "general")
+            elif sub.subentry_type == "tts":
+                dev_model = str(sub.data.get(CONF_TTS_VOICE) or DEFAULT_TTS_VOICE)
+            elif sub.data.get("recommended"):
+                dev_model = DEFAULT_CHAT_MODEL
+            else:
+                dev_model = str(sub.data.get(CONF_CHAT_MODEL) or DEFAULT_CHAT_MODEL)
+            if dev.model != dev_model:
+                device_registry.async_update_device(dev.id, model=dev_model)
+
     entry.async_on_unload(entry.add_update_listener(async_update_options))
 
     return True

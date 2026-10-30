@@ -225,11 +225,16 @@ class YandexAISubentryFlowHandler(ConfigSubentryFlow):
                     data=user_input,
                 )
 
-            return self.async_update_and_abort(
-                self._get_entry(),
+            entry = self._get_entry()
+            result = self.async_update_and_abort(
+                entry,
                 self._get_reconfigure_subentry(),
                 data=user_input,
             )
+            self.hass.async_create_task(
+                self.hass.config_entries.async_reload(entry.entry_id)
+            )
+            return result
 
         schema = _yandex_config_option_schema(
             self.hass, self._is_new, self._subentry_type, options

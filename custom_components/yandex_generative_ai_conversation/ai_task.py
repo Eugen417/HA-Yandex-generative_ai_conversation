@@ -12,6 +12,7 @@ from homeassistant.components import ai_task, conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.json import json_loads
 
@@ -20,6 +21,7 @@ from .const import (
     CONF_RECOMMENDED,
     DEFAULT_CHAT_MODEL,
     DEFAULT_IMAGE_MODEL,
+    DOMAIN,
 )
 from .entity import YandexAIBaseLLMEntity
 
@@ -170,6 +172,17 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
                     if image_data.startswith(b"\xff\xd8")
                     else "image/png"
                 )
+
+                if self.hass is not None:
+                    async_dispatcher_send(
+                        self.hass,
+                        f"{DOMAIN}_usage_{self.subentry.subentry_id}",
+                        {
+                            "images": 1,
+                            "cost_rub": 2.23,
+                            "model": image_model,
+                        },
+                    )
 
                 chat_log.async_add_assistant_content_without_tools(
                     conversation.AssistantContent(

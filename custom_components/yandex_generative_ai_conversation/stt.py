@@ -18,6 +18,7 @@ from homeassistant.components.stt import (
 )
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
@@ -25,6 +26,7 @@ from .const import (
     CONF_STT_MODEL,
     DEFAULT_STT_LANGUAGE,
     DEFAULT_STT_MODEL,
+    DOMAIN,
     STT_LANGUAGES,
 )
 from .entity import YandexAIBaseLLMEntity
@@ -159,6 +161,16 @@ class YandexSTTEntity(SpeechToTextEntity, YandexAIBaseLLMEntity):
                     res = await resp.json()
                     text = res.get("result", "")
                     if text:
+                        if self.hass is not None:
+                            async_dispatcher_send(
+                                self.hass,
+                                f"{DOMAIN}_usage_{self.subentry.subentry_id}",
+                                {
+                                    "requests": 1,
+                                    "cost_rub": 0.15,
+                                    "model": topic,
+                                },
+                            )
                         return SpeechResult(text, SpeechResultState.SUCCESS)
                     _LOGGER.warning("Yandex STT returned empty result: %s", res)
                     return SpeechResult("", SpeechResultState.ERROR)

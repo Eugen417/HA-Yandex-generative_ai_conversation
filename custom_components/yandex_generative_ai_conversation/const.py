@@ -47,10 +47,13 @@ DEFAULT_TTS_VOICE = "alena"
 DEFAULT_TTS_EMOTION = "good"
 DEFAULT_TTS_SPEED = 1.0
 
+DEFAULT_VISION_MODEL = "gemma-3-27b-it/latest"
+
 CHAT_MODELS = [
     "yandexgpt/latest",
     "yandexgpt-lite/latest",
     "aliceai-llm/latest",
+    "gemma-3-27b-it/latest",
     "qwen3-235b-a22b-fp8/latest",
     "yandexgpt/rc",
     "yandexgpt-lite/rc",
@@ -60,6 +63,7 @@ CHAT_MODEL_LABELS: dict[str, str] = {
     "yandexgpt/latest": "YandexGPT Pro (1.20 ₽ / 1K — рекомендуется для управления УД)",
     "yandexgpt-lite/latest": "YandexGPT Lite (0.20 ₽ / 1K — для текста и AI Task, без сложного управления)",
     "aliceai-llm/latest": "Alice AI LLM (0.50 ₽ / 1K — диалоговая)",
+    "gemma-3-27b-it/latest": "Gemma 3 27B Vision (0.40 ₽ / 1K — анализ изображений и камер)",
     "qwen3-235b-a22b-fp8/latest": "Qwen3 235B (0.50 ₽ / 1K)",
     "yandexgpt/rc": "YandexGPT Pro RC (1.20 ₽ / 1K)",
     "yandexgpt-lite/rc": "YandexGPT Lite RC (0.20 ₽ / 1K)",

@@ -4,7 +4,7 @@ import asyncio
 import base64
 from json import JSONDecodeError
 import logging
-from typing import override
+from typing import Any, override
 
 import aiohttp
 
@@ -21,6 +21,7 @@ from .const import (
     CONF_RECOMMENDED,
     DEFAULT_CHAT_MODEL,
     DEFAULT_IMAGE_MODEL,
+    DEFAULT_VISION_MODEL,
     DOMAIN,
 )
 from .entity import YandexAIBaseLLMEntity
@@ -57,7 +58,10 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
         if subentry.subentry_type == "ai_task_image":
             self._attr_supported_features = ai_task.AITaskEntityFeature.GENERATE_IMAGE
         else:
-            self._attr_supported_features = ai_task.AITaskEntityFeature.GENERATE_DATA
+            self._attr_supported_features = (
+                ai_task.AITaskEntityFeature.GENERATE_DATA
+                | ai_task.AITaskEntityFeature.SUPPORT_ATTACHMENTS
+            )
 
     @override
     async def _async_generate_data(
@@ -65,15 +69,20 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
         task: ai_task.GenDataTask,
         chat_log: conversation.ChatLog,
     ) -> ai_task.GenDataTaskResult:
-        """Handle a generate data task."""
-        await self._async_handle_chat_log(chat_log, task.structure)
-
-        if not chat_log.content or not isinstance(
-            chat_log.content[-1], conversation.AssistantContent
+        """Handle a generate data task (including multimodal image/camera analysis)."""
+        last_msg = chat_log.content[-1] if chat_log.content else None
+        if (
+            isinstance(last_msg, conversation.UserContent)
+            and getattr(last_msg, "attachments", None)
         ):
-            raise HomeAssistantError("Failed to get response from Yandex AI Studio")
-
-        text = (chat_log.content[-1].content or "").strip()
+            text = await self._async_analyze_attachments(last_msg, chat_log)
+        else:
+            await self._async_handle_chat_log(chat_log, task.structure)
+            if not chat_log.content or not isinstance(
+                chat_log.content[-1], conversation.AssistantContent
+            ):
+                raise HomeAssistantError("Failed to get response from Yandex AI Studio")
+            text = (chat_log.content[-1].content or "").strip()
         if not task.structure:
             return ai_task.GenDataTaskResult(
                 conversation_id=chat_log.conversation_id,
@@ -98,6 +107,98 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
             conversation_id=chat_log.conversation_id,
             data=data,
         )
+
+    async def _async_analyze_attachments(
+        self,
+        user_message: conversation.UserContent,
+        chat_log: conversation.ChatLog,
+    ) -> str:
+        """Analyze image/camera attachments using Yandex AI Studio Vision model (Gemma 3 27B)."""
+        content_parts: list[dict[str, Any]] = [
+            {"type": "text", "text": user_message.content or "Опиши это изображение."}
+        ]
+        for attachment in user_message.attachments or []:
+            if not str(attachment.mime_type).startswith("image/"):
+                raise HomeAssistantError(
+                    f"Поддерживаются только изображения (получен {attachment.mime_type})"
+                )
+            img_bytes = await self.hass.async_add_executor_job(
+                attachment.path.read_bytes
+            )
+            b64_img = base64.b64encode(img_bytes).decode("utf-8")
+            content_parts.append(
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:{attachment.mime_type};base64,{b64_img}"},
+                }
+            )
+
+        headers = {
+            "Authorization": f"Api-Key {self.api_key}",
+            "Content-Type": "application/json",
+            "x-folder-id": self.folder_id,
+            "OpenAI-Project": self.folder_id,
+        }
+        payload = {
+            "model": f"gpt://{self.folder_id}/{DEFAULT_VISION_MODEL}",
+            "messages": [{"role": "user", "content": content_parts}],
+            "stream": False,
+        }
+
+        try:
+            async with (
+                aiohttp.ClientSession() as session,
+                session.post(
+                    "https://llm.api.cloud.yandex.net/v1/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=60),
+                ) as resp,
+            ):
+                if resp.status != 200:
+                    err = await resp.text()
+                    raise HomeAssistantError(
+                        f"Yandex Vision Error ({resp.status}): {err}"
+                    )
+                res_data = await resp.json()
+                choices = res_data.get("choices", [])
+                if not choices:
+                    raise HomeAssistantError("Пустой ответ от Yandex Vision")
+                reply_text = (
+                    choices[0].get("message", {}).get("content") or ""
+                ).strip()
+
+                usage = res_data.get("usage", {})
+                in_tokens = int(usage.get("prompt_tokens", 0) or 0)
+                out_tokens = int(usage.get("completion_tokens", 0) or 0)
+                tot_tokens = int(
+                    usage.get("total_tokens", 0) or (in_tokens + out_tokens)
+                )
+                if self.hass is not None and tot_tokens:
+                    async_dispatcher_send(
+                        self.hass,
+                        f"{DOMAIN}_usage_{self.subentry.subentry_id}",
+                        {
+                            "tokens": tot_tokens,
+                            "input_tokens": in_tokens,
+                            "output_tokens": out_tokens,
+                            "cost_rub": tot_tokens * 0.40 / 1000.0,
+                            "model": DEFAULT_VISION_MODEL,
+                        },
+                    )
+
+                chat_log.async_add_assistant_content_without_tools(
+                    conversation.AssistantContent(
+                        agent_id=self.entity_id,
+                        content=reply_text,
+                    )
+                )
+                return reply_text
+        except HomeAssistantError:
+            raise
+        except Exception as err:
+            raise HomeAssistantError(f"Vision analysis error: {err}") from err
+
 
 
     @override

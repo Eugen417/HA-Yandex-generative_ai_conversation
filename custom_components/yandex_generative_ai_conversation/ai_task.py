@@ -136,31 +136,83 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
         headers = {
             "Authorization": f"Api-Key {self.api_key}",
             "Content-Type": "application/json",
-            "x-folder-id": self.folder_id,
             "OpenAI-Project": self.folder_id,
         }
-        payload = {
-            "model": f"gpt://{self.folder_id}/{DEFAULT_VISION_MODEL}",
-            "messages": [{"role": "user", "content": content_parts}],
-            "stream": False,
-        }
+
+        vision_candidates = [
+            f"gpt://{self.folder_id}/{DEFAULT_VISION_MODEL}",
+            f"gpt://{self.folder_id}/gemma-3-27b-it",
+            f"gpt://{self.folder_id}/qwen3.6-35b-a3b/latest",
+            f"gpt://{self.folder_id}/qwen3.6-35b-a3b",
+            f"gpt://{self.folder_id}/qwen2.5-vl-32b-instruct/latest",
+            f"gpt://{self.folder_id}/qwen2.5-vl-32b-instruct",
+            f"gpt://{self.folder_id}/aliceai-llm/latest",
+        ]
 
         try:
-            async with (
-                aiohttp.ClientSession() as session,
-                session.post(
-                    "https://llm.api.cloud.yandex.net/v1/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=60),
-                ) as resp,
-            ):
-                if resp.status != 200:
-                    err = await resp.text()
+            async with aiohttp.ClientSession() as session:
+                try:
+                    async with session.get(
+                        "https://ai.api.cloud.yandex.net/v1/models",
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=15),
+                    ) as models_resp:
+                        if models_resp.status == 200:
+                            models_json = await models_resp.json()
+                            available_ids = [
+                                str(m.get("id"))
+                                for m in models_json.get("data", [])
+                                if m.get("id")
+                            ]
+                            _LOGGER.info(
+                                "Yandex AI Studio available /v1/models: %s",
+                                available_ids,
+                            )
+                            for mid in available_ids:
+                                if any(
+                                    k in mid.lower()
+                                    for k in ("vl", "vision", "gemma", "qwen3.6")
+                                ) and mid not in vision_candidates:
+                                    vision_candidates.insert(0, mid)
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.debug("Failed to query /v1/models: %s", err)
+                last_status = 0
+                last_err = ""
+                res_data: dict[str, Any] | None = None
+                used_model = DEFAULT_VISION_MODEL
+
+                for candidate_uri in vision_candidates:
+                    payload = {
+                        "model": candidate_uri,
+                        "messages": [{"role": "user", "content": content_parts}],
+                        "stream": False,
+                    }
+                    async with session.post(
+                        "https://ai.api.cloud.yandex.net/v1/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        timeout=aiohttp.ClientTimeout(total=60),
+                    ) as resp:
+                        if resp.status == 200:
+                            res_data = await resp.json()
+                            used_model = candidate_uri.removeprefix(
+                                f"gpt://{self.folder_id}/"
+                            )
+                            break
+                        last_status = resp.status
+                        last_err = await resp.text()
+                        _LOGGER.debug(
+                            "Vision candidate %s returned %s: %s",
+                            candidate_uri,
+                            last_status,
+                            last_err,
+                        )
+
+                if res_data is None:
                     raise HomeAssistantError(
-                        f"Yandex Vision Error ({resp.status}): {err}"
+                        f"Yandex Vision Error ({last_status}): {last_err}"
                     )
-                res_data = await resp.json()
+
                 choices = res_data.get("choices", [])
                 if not choices:
                     raise HomeAssistantError("Пустой ответ от Yandex Vision")
@@ -183,7 +235,7 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
                             "input_tokens": in_tokens,
                             "output_tokens": out_tokens,
                             "cost_rub": tot_tokens * 0.40 / 1000.0,
-                            "model": DEFAULT_VISION_MODEL,
+                            "model": used_model,
                         },
                     )
 

@@ -2,6 +2,12 @@
 
 Все значимые изменения проекта документируются в этом файле.
 
+## [1.2.1] - 2026-11-01
+
+### Исправлено
+- **`Yandex AI Task` / `Yandex AI Conversation` (`entity.py`)**: исправлена ошибка `400 unknown model 'gpt://gemma-3-27b-it/latest'` при вызове текстовых задач `ai_task.generate_data` без вложений камер, когда в настройках службы выбрана мультимодальная модель `gemma-3-27b-it/latest` или `qwen3-235b-a22b-fp8/latest`. Теперь для текстовых запросов без картинок автоматически используется `yandexgpt/latest`, а для анализа камер (`attachments`) — `gemma-3-27b-it/latest` через `/v1/chat/completions`.
+- **`manifest.json`**: очищено поле `requirements` для успешного прохождения валидации Home Assistant Hassfest.
+
 ## [1.2.0] - 2026-10-30
 
 ### Добавлено

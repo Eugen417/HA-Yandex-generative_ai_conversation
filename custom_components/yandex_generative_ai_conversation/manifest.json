@@ -9,6 +9,10 @@
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Eugen417/HA-Yandex-generative_ai_conversation/issues",
-  "requirements": ["probatio==0.13.0"],
-  "version": "1.2.0"
+  "requirements": [],
+  "version": "1.2.1"
 }
+
+
+
+

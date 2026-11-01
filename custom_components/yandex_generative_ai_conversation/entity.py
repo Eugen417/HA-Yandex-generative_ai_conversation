@@ -118,6 +118,11 @@ def _build_yandex_messages(
     messages: list[dict[str, Any]] = []
     pending_tool_results: list[dict[str, Any]] = []
 
+    last_user_idx = 0
+    for idx, item in enumerate(chat_contents):
+        if isinstance(item, conversation.UserContent):
+            last_user_idx = idx
+
     def flush_tool_results() -> None:
         if pending_tool_results:
             messages.append(
@@ -128,18 +133,20 @@ def _build_yandex_messages(
             )
             pending_tool_results.clear()
 
-    for content in chat_contents:
+    for idx, content in enumerate(chat_contents):
         if isinstance(content, conversation.ToolResultContent):
+            if idx < last_user_idx and "GetLiveContext" in content.tool_name:
+                res_payload: dict[str, Any] = {"status": "ok"}
+            else:
+                res_payload = {
+                    "data": content.result.data,
+                    "error": content.result.error,
+                }
             pending_tool_results.append(
                 {
                     "functionResult": {
                         "name": content.tool_name,
-                        "content": json_dumps(
-                            {
-                                "data": content.result.data,
-                                "error": content.result.error,
-                            }
-                        ),
+                        "content": json_dumps(res_payload),
                     }
                 }
             )
@@ -238,7 +245,9 @@ class YandexAIBaseLLMEntity(Entity):
             temperature = float(options.get(CONF_TEMPERATURE, RECOMMENDED_TEMPERATURE))
             max_tokens = int(options.get(CONF_MAX_TOKENS, RECOMMENDED_MAX_TOKENS))
 
-        if (
+        if str(model_name).startswith(("gemma", "qwen")):
+            model_name = DEFAULT_CHAT_MODEL
+        elif (
             self.subentry.subentry_type == "conversation"
             and chat_log.llm_api
             and str(model_name).startswith("yandexgpt-lite")

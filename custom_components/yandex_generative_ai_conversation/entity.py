@@ -256,10 +256,14 @@ class YandexAIBaseLLMEntity(Entity):
 
         tools: list[dict[str, Any]] | None = None
         if chat_log.llm_api:
-            tools = [
-                _format_tool(tool, chat_log.llm_api.custom_serializer)
-                for tool in chat_log.llm_api.tools
-            ]
+            tools = []
+            seen_names: set[str] = set()
+            for tool in chat_log.llm_api.tools:
+                if tool.name not in seen_names:
+                    seen_names.add(tool.name)
+                    tools.append(
+                        _format_tool(tool, chat_log.llm_api.custom_serializer)
+                    )
 
         headers = {
             "Authorization": f"Api-Key {self.api_key}",

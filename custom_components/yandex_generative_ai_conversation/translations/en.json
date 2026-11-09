@@ -30,11 +30,15 @@
           "data": {
             "name": "Name",
             "prompt": "Instructions",
-            "llm_hass_api": "Control Home Assistant",
+            "llm_hass_api": "AI tools",
             "recommended": "Recommended model settings",
             "chat_model": "Model",
             "temperature": "Temperature",
             "max_tokens": "Maximum tokens to return in response"
+          },
+          "data_description": {
+            "prompt": "Instruct how the LLM should respond. This can be a template.",
+            "llm_hass_api": "**Device control** only gives access to entities that you expose to voice assistants. **Home Assistant** has access to everything and only works for admins, not voice assistant devices."
           }
         }
       }

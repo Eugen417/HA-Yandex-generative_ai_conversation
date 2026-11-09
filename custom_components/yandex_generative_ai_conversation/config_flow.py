@@ -286,7 +286,7 @@ def _yandex_config_option_schema(
             SelectOptionDict(label=api.name, value=api.id)
             for api in llm.async_get_apis(hass)
         ]
-        suggested_apis = options.get(CONF_LLM_HASS_API, [llm.LLM_API_ASSIST])
+        suggested_apis = options.get(CONF_LLM_HASS_API)
         if isinstance(suggested_apis, str):
             suggested_apis = [suggested_apis] if suggested_apis != "none" else []
         elif not isinstance(suggested_apis, list):

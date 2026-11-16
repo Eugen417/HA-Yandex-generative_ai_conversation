@@ -2,6 +2,15 @@
 
 Все значимые изменения проекта документируются в этом файле.
 
+## [1.2.3] - 2026-11-16
+
+### Исправлено и улучшено
+- **Обратная совместимость с Home Assistant `2025.7`–`2026.8` и `2026.9+` (`entity.py`)**: добавлен автоматический фоллбэк с `probatio.to_openapi` на `voluptuous_openapi.convert`, устраняющий ошибки `No module named 'probatio'` и `Platform ...conversation not found` на версиях HA до `2026.9`.
+- **Общий пул HTTP/TLS-сессий Home Assistant (`async_get_clientsession`)**: все платформы (`entity.py`, `ai_task.py`, `stt.py`, `tts.py`) переведены на переиспользование соединений ядра HA, что ускоряет отклик ассистента.
+- **Чистка предупреждений HA 2027.8 и точность сенсоров (`__init__.py`, `config_flow.py`, `sensor.py`)**:
+  - Заменён устаревший вызов `device_registry.async_get_device` на `async_entries_for_config_entry` в `__init__.py` и убрана двойная перезагрузка в `config_flow.py`.
+  - Устранено накопление погрешности округления в сенсоре затрат (`sensor.py`).
+
 ## [1.2.2] - 2026-11-09
 
 ### Исправлено и улучшено

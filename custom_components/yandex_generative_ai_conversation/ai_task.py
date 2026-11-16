@@ -12,6 +12,7 @@ from homeassistant.components import ai_task, conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.json import json_loads
@@ -150,7 +151,8 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
         ]
 
         try:
-            async with aiohttp.ClientSession() as session:
+            session = async_get_clientsession(self.hass)
+            if True:
                 try:
                     async with session.get(
                         "https://ai.api.cloud.yandex.net/v1/models",
@@ -297,15 +299,13 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
         }
 
         try:
-            async with (
-                aiohttp.ClientSession() as session,
-                session.post(
-                    "https://ai.api.cloud.yandex.net/v1/images/generations",
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=120),
-                ) as resp,
-            ):
+            session = async_get_clientsession(self.hass)
+            async with session.post(
+                "https://ai.api.cloud.yandex.net/v1/images/generations",
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=120),
+            ) as resp:
                 if resp.status != 200:
                     err = await resp.text()
                     raise HomeAssistantError(

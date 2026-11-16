@@ -192,6 +192,7 @@ class YandexSubentryCostSensor(RestoreSensor):
         self.entry = entry
         self.subentry = subentry
         self._attr_unique_id = f"{subentry.subentry_id}_cost_rub"
+        self._exact_cost: float = 0.0
         self._attr_native_value: float = 0.0
         self._extra_attrs: dict[str, Any] = {
             "requests_count": 0,
@@ -218,10 +219,10 @@ class YandexSubentryCostSensor(RestoreSensor):
         if (last_sensor := await self.async_get_last_sensor_data()) is not None:
             try:
                 if last_sensor.native_value is not None:
-                    self._attr_native_value = round(
-                        float(str(last_sensor.native_value)), 4
-                    )
+                    self._exact_cost = float(str(last_sensor.native_value))
+                    self._attr_native_value = round(self._exact_cost, 4)
             except (TypeError, ValueError):
+                self._exact_cost = 0.0
                 self._attr_native_value = 0.0
 
         if (last_state := await self.async_get_last_state()) is not None:
@@ -241,9 +242,8 @@ class YandexSubentryCostSensor(RestoreSensor):
     def _handle_usage_event(self, data: dict[str, Any]) -> None:
         """Update cost when a request finishes."""
         cost_delta = float(data.get("cost_rub", 0.0))
-        self._attr_native_value = round(
-            float(self._attr_native_value or 0.0) + cost_delta, 4
-        )
+        self._exact_cost += cost_delta
+        self._attr_native_value = round(self._exact_cost, 4)
         self._extra_attrs["requests_count"] = (
             int(self._extra_attrs.get("requests_count", 0)) + 1
         )

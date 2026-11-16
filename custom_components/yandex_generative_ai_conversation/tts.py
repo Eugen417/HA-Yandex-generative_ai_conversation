@@ -16,6 +16,7 @@ from homeassistant.components.tts import (
 )
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -156,15 +157,13 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
                 data["emotion"] = "neutral"
 
         try:
-            async with (
-                aiohttp.ClientSession() as session,
-                session.post(
-                    "https://tts.api.cloud.yandex.net/speech/v1/tts:synthesize",
-                    headers=headers,
-                    data=data,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp,
-            ):
+            session = async_get_clientsession(self.hass)
+            async with session.post(
+                "https://tts.api.cloud.yandex.net/speech/v1/tts:synthesize",
+                headers=headers,
+                data=data,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
                 if resp.status == 200:
                     audio = await resp.read()
                     if self.hass is not None:
@@ -224,15 +223,13 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
         }
 
         try:
-            async with (
-                aiohttp.ClientSession() as session,
-                session.post(
-                    "https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis",
-                    headers=headers,
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp,
-            ):
+            session = async_get_clientsession(self.hass)
+            async with session.post(
+                "https://tts.api.cloud.yandex.net/tts/v3/utteranceSynthesis",
+                headers=headers,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
                 text = await resp.text()
                 if resp.status != 200:
                     _LOGGER.error(

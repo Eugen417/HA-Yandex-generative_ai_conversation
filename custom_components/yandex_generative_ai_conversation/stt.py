@@ -18,6 +18,7 @@ from homeassistant.components.stt import (
 )
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -147,16 +148,14 @@ class YandexSTTEntity(SpeechToTextEntity, YandexAIBaseLLMEntity):
             params["sampleRateHertz"] = sample_rate
 
         try:
-            async with (
-                aiohttp.ClientSession() as session,
-                session.post(
-                    "https://stt.api.cloud.yandex.net/speech/v1/stt:recognize",
-                    headers=headers,
-                    params=params,
-                    data=audio_data,
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp,
-            ):
+            session = async_get_clientsession(self.hass)
+            async with session.post(
+                "https://stt.api.cloud.yandex.net/speech/v1/stt:recognize",
+                headers=headers,
+                params=params,
+                data=audio_data,
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
                 if resp.status == 200:
                     res = await resp.json()
                     text = res.get("result", "")

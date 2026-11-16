@@ -52,10 +52,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Clean up legacy shared hub device so each subentry owns its own service device
     device_registry = dr.async_get(hass)
-    if legacy_device := device_registry.async_get_device(
-        identifiers={(DOMAIN, entry.entry_id)}
-    ):
-        device_registry.async_remove_device(legacy_device.id)
+    for dev in dr.async_entries_for_config_entry(device_registry, entry.entry_id):
+        if (DOMAIN, entry.entry_id) in dev.identifiers:
+            device_registry.async_remove_device(dev.id)
 
     entity_registry = er.async_get(hass)
     for ent in er.async_entries_for_config_entry(entity_registry, entry.entry_id):
@@ -182,10 +181,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Ensure device registry model labels match current subentry models
+    entry_devices = dr.async_entries_for_config_entry(
+        device_registry, entry.entry_id
+    )
     for sub in entry.subentries.values():
-        if dev := device_registry.async_get_device(
-            identifiers={(DOMAIN, sub.subentry_id)}
-        ):
+        dev = next(
+            (
+                d
+                for d in entry_devices
+                if (DOMAIN, sub.subentry_id) in d.identifiers
+            ),
+            None,
+        )
+        if dev is not None:
             if sub.subentry_type == "ai_task_image":
                 dev_model = str(sub.data.get("image_model") or DEFAULT_IMAGE_MODEL)
             elif sub.subentry_type == "stt":

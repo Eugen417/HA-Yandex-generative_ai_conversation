@@ -6,12 +6,22 @@ import logging
 from typing import Any
 
 import aiohttp
-import probatio
+
+try:
+    import probatio
+except ImportError:
+    probatio = None  # type: ignore[assignment]
+
+try:
+    import voluptuous_openapi
+except ImportError:
+    voluptuous_openapi = None  # type: ignore[assignment]
 
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, llm
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.json import json_dumps
@@ -88,16 +98,27 @@ def _normalize_yandex_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
     return schema
 
 
+def _schema_to_openapi(
+    parameters: Any, custom_serializer: Callable[[Any], Any] | None
+) -> dict[str, Any]:
+    """Convert voluptuous/probatio schema to OpenAPI dict across HA 2025.7+ and 2026.9+."""
+    if probatio is not None:
+        return probatio.to_openapi(parameters, custom_serializer=custom_serializer)
+    if voluptuous_openapi is not None:
+        return voluptuous_openapi.convert(
+            parameters, custom_serializer=custom_serializer
+        )
+    return {"type": "object", "properties": {}}
+
+
 def _format_tool(
     tool: llm.Tool, custom_serializer: Callable[[Any], Any] | None
 ) -> dict[str, Any]:
     """Format tool specification for Yandex Foundation Models API."""
     schema: dict[str, Any] = {"type": "object", "properties": {}}
-    if probatio is not None:
+    if probatio is not None or voluptuous_openapi is not None:
         try:
-            schema = probatio.to_openapi(
-                tool.parameters, custom_serializer=custom_serializer
-            )
+            schema = _schema_to_openapi(tool.parameters, custom_serializer)
             if "type" not in schema or not isinstance(schema["type"], str):
                 schema["type"] = "object"
         except Exception as err:  # noqa: BLE001
@@ -285,11 +306,13 @@ class YandexAIBaseLLMEntity(Entity):
             if tools:
                 payload["tools"] = tools
 
-            if structure is not None and probatio is not None:
+            if structure is not None and (
+                probatio is not None or voluptuous_openapi is not None
+            ):
                 try:
-                    schema = probatio.to_openapi(
+                    schema = _schema_to_openapi(
                         structure,
-                        custom_serializer=(
+                        (
                             chat_log.llm_api.custom_serializer
                             if chat_log.llm_api
                             else llm.selector_serializer
@@ -302,15 +325,13 @@ class YandexAIBaseLLMEntity(Entity):
                     _LOGGER.debug("Failed to build jsonSchema: %s", err)
 
             try:
-                async with (
-                    aiohttp.ClientSession() as session,
-                    session.post(
-                        "https://llm.api.cloud.yandex.net/foundationModels/v1/completion",
-                        headers=headers,
-                        json=payload,
-                        timeout=aiohttp.ClientTimeout(total=45),
-                    ) as resp,
-                ):
+                session = async_get_clientsession(self.hass)
+                async with session.post(
+                    "https://llm.api.cloud.yandex.net/foundationModels/v1/completion",
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=45),
+                ) as resp:
                     if resp.status != 200:
                         err_text = await resp.text()
                         _LOGGER.error("Yandex API error %s: %s", resp.status, err_text)

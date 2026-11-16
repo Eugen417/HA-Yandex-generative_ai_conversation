@@ -11,6 +11,10 @@
   <a href="https://www.home-assistant.io/"><img alt="Home Assistant" src="https://img.shields.io/badge/Home%20Assistant-2025.7%2B%20%7C%202026.x-blue.svg" /></a>
 </p>
 
+<p align="center">
+  <b>🇷🇺 Русский</b> | <a href="README.en.md">🇬🇧 English</a>
+</p>
+
 Полнофункциональная интеграция **Yandex AI Studio (YandexGPT, YandexART и Yandex SpeechKit)** для **Home Assistant**, построенная по современной сервисной архитектуре `ConfigSubentry` и `ChatLog` (аналогично официальным интеграциям **Google Gemini** и **Ollama** и пользовательской [**Sber GigaChat AI**](https://github.com/Eugen417/HA-GigaChat-generative_ai_conversation) в Home Assistant 2026).
 
 Интеграция объединяет в одном подключении сразу **5 независимых ИИ-служб** для голосового ассистента **Assist** и автоматизаций умного дома:
@@ -246,6 +250,7 @@ HA-Yandex-generative_ai_conversation/
 ├── API_KEY_GUIDE.md            # Пошаговая инструкция по получению Folder ID и API-ключа
 ├── CHANGELOG.md                # История изменений
 ├── LICENSE                     # Лицензия MIT
+├── README.en.md                # Документация на английском языке (English documentation)
 ├── README.md                   # Основная документация
 └── hacs.json                   # Конфигурация HACS
 ```

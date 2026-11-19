@@ -39,7 +39,7 @@ DEFAULT_PROMPT = (
     "Отвечай правдиво на вопросы об окружающем мире.\n"
     "Отвечай просто, кратко и по делу обычным текстом на русском языке."
 )
-DEFAULT_CHAT_MODEL = "yandexgpt-5.1"
+DEFAULT_CHAT_MODEL = "yandexgpt-5.1/latest"
 DEFAULT_IMAGE_MODEL = "aliceai-image-art-3.0"
 DEFAULT_STT_MODEL = "general"
 DEFAULT_STT_LANGUAGE = "ru-RU"
@@ -64,29 +64,38 @@ REASONING_EFFORT_OPTIONS = [
     "high",
 ]
 
-DEFAULT_VISION_MODEL = "qwen3.6-35b-a3b"
+DEFAULT_VISION_MODEL = "qwen3.6-35b-a3b/latest"
 
 CHAT_MODELS = [
-    "yandexgpt-5.1",
-    "aliceai-llm-flash",
-    "aliceai-llm",
-    "deepseek-v4.1-flash",
-    "qwen3.6-35b-a3b",
-    "yandexgpt-5-pro",
+    "yandexgpt-5.1/latest",
+    "aliceai-llm-flash/latest",
+    "aliceai-llm/latest",
+    "deepseek-v4.1-flash/latest",
+    "qwen3.6-35b-a3b/latest",
+    "yandexgpt-5-pro/latest",
     "yandexgpt/latest",
+    "yandexgpt/rc",
     "yandexgpt-lite/latest",
     "gemma-3-27b-it/latest",
     "qwen3-235b-a22b-fp8/latest",
 ]
 
 CHAT_MODEL_LABELS: dict[str, str] = {
+    "yandexgpt-5.1/latest": "YandexGPT Pro 5.1 (0.80 / 0.80 ₽ за 1K — 32k, флагман для УД)",
     "yandexgpt-5.1": "YandexGPT Pro 5.1 (0.80 / 0.80 ₽ за 1K — 32k, флагман для УД)",
+    "aliceai-llm-flash/latest": "Alice AI LLM Flash (0.10 / 0.20 ₽ за 1K — 64k, сверхбыстрая для голоса и чатов)",
     "aliceai-llm-flash": "Alice AI LLM Flash (0.10 / 0.20 ₽ за 1K — 64k, сверхбыстрая для голоса и чатов)",
+    "aliceai-llm/latest": "Alice AI LLM (0.50 / 1.20 ₽ за 1K — 128k, живой диалог)",
     "aliceai-llm": "Alice AI LLM (0.50 / 1.20 ₽ за 1K — 128k, живой диалог)",
+    "deepseek-v4.1-flash/latest": "DeepSeek V4.1 Flash (0.30 / 0.50 ₽ за 1K — 1M контекст, ИИ-агенты и MCP)",
     "deepseek-v4.1-flash": "DeepSeek V4.1 Flash (0.30 / 0.50 ₽ за 1K — 1M контекст, ИИ-агенты и MCP)",
-    "qwen3.6-35b-a3b": "Qwen3.6 35B Vision (0.20 / 0.30 ₽ за 1K — 256k, анализ камер и мультимодальность)",
+    "deepseek-v4-flash/latest": "DeepSeek V4 Flash [legacy] (0.30 / 0.50 ₽ за 1K)",
+    "qwen3.6-35b-a3b/latest": "Qwen3.6 35B Vision (0.20 / 0.30 ₽ за 1K — 256k, анализ камер и фото)",
+    "qwen3.6-35b-a3b": "Qwen3.6 35B Vision (0.20 / 0.30 ₽ за 1K — 256k, анализ камер и фото)",
+    "yandexgpt-5-pro/latest": "YandexGPT Pro 5 (1.20 / 1.20 ₽ за 1K — 32k)",
     "yandexgpt-5-pro": "YandexGPT Pro 5 (1.20 / 1.20 ₽ за 1K — 32k)",
     "yandexgpt/latest": "YandexGPT Pro [legacy alias] (1.20 ₽ / 1K)",
+    "yandexgpt/rc": "YandexGPT Pro RC [alias -> 5.1] (0.80 ₽ / 1K)",
     "yandexgpt-lite/latest": "YandexGPT Lite [legacy] (0.20 ₽ / 1K)",
     "gemma-3-27b-it/latest": "Gemma 3 27B Vision [legacy] (0.40 ₽ / 1K)",
     "qwen3-235b-a22b-fp8/latest": "Qwen3 235B [legacy] (0.50 ₽ / 1K)",

@@ -273,34 +273,10 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
         return [Voice(voice_id, voice_name) for voice_id, voice_name in voices]
 
     async def async_get_tts_audio(
-        self, message: str, language: str, options: dict[str, Any]
+        self, message: str, language: str, options: dict[str, Any] | None
     ) -> TtsAudioType:
         """Load TTS audio from Yandex SpeechKit (API v1 & API v3)."""
-        entry_options = self.subentry.data
-        voice = str(
-            options.get(
-                ATTR_VOICE, entry_options.get(CONF_TTS_VOICE, DEFAULT_TTS_VOICE)
-            )
-        )
-        emotion = str(
-            options.get(
-                "emotion", entry_options.get(CONF_TTS_EMOTION, DEFAULT_TTS_EMOTION)
-            )
-        )
-        if ":" in voice:
-            voice, emotion = voice.split(":", 1)
-
-        speed = str(
-            options.get("speed", entry_options.get(CONF_TTS_SPEED, DEFAULT_TTS_SPEED))
-        )
-        raw_pitch = options.get(
-            "pitch_shift",
-            entry_options.get(CONF_TTS_PITCH_SHIFT, DEFAULT_TTS_PITCH_SHIFT),
-        )
-        try:
-            pitch_shift = float(raw_pitch)
-        except (TypeError, ValueError):
-            pitch_shift = 0.0
+        voice, emotion, speed, pitch_shift = self._resolve_voice_options(options)
 
         # Voices that require SpeechKit API v3 (general v3 & 4th-gen LiveTTS)
         if voice in V3_VOICE_ROLES or voice in LIVETTS_VOICE_ROLES:
@@ -405,8 +381,10 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
                     if not line:
                         continue
                     chunk_obj = json.loads(line)
-                    result_obj = chunk_obj.get("result", chunk_obj)
-                    b64_data = result_obj.get("audioChunk", {}).get("data")
+                    result_obj = chunk_obj.get("result") or chunk_obj
+                    if not isinstance(result_obj, dict):
+                        continue
+                    b64_data = (result_obj.get("audioChunk") or {}).get("data")
                     if b64_data:
                         audio_chunks.append(base64.b64decode(b64_data))
 
@@ -434,17 +412,18 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
         return (None, None)
 
     def _resolve_voice_options(
-        self, options: Mapping[str, Any]
+        self, options: Mapping[str, Any] | None
     ) -> tuple[str, str, str, float]:
         """Extract normalized voice, emotion, speed, and pitch_shift."""
         entry_options = self.subentry.data
+        opts = options or {}
         voice = str(
-            options.get(
+            opts.get(
                 ATTR_VOICE, entry_options.get(CONF_TTS_VOICE, DEFAULT_TTS_VOICE)
             )
         )
         emotion = str(
-            options.get(
+            opts.get(
                 "emotion", entry_options.get(CONF_TTS_EMOTION, DEFAULT_TTS_EMOTION)
             )
         )
@@ -452,9 +431,9 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
             voice, emotion = voice.split(":", 1)
 
         speed = str(
-            options.get("speed", entry_options.get(CONF_TTS_SPEED, DEFAULT_TTS_SPEED))
+            opts.get("speed", entry_options.get(CONF_TTS_SPEED, DEFAULT_TTS_SPEED))
         )
-        raw_pitch = options.get(
+        raw_pitch = opts.get(
             "pitch_shift",
             entry_options.get(CONF_TTS_PITCH_SHIFT, DEFAULT_TTS_PITCH_SHIFT),
         )
@@ -568,8 +547,10 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
                     if not line:
                         continue
                     chunk_obj = json.loads(line)
-                    result_obj = chunk_obj.get("result", chunk_obj)
-                    b64_data = result_obj.get("audioChunk", {}).get("data")
+                    result_obj = chunk_obj.get("result") or chunk_obj
+                    if not isinstance(result_obj, dict):
+                        continue
+                    b64_data = (result_obj.get("audioChunk") or {}).get("data")
                     if b64_data:
                         pcm = carry + base64.b64decode(b64_data)
                         if len(pcm) & 1:
@@ -582,8 +563,10 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
             if rem := byte_buf.decode("utf-8", errors="replace").strip():
                 with contextlib.suppress(json.JSONDecodeError):
                     chunk_obj = json.loads(rem)
-                    result_obj = chunk_obj.get("result", chunk_obj)
-                    if b64_data := result_obj.get("audioChunk", {}).get("data"):
+                    result_obj = chunk_obj.get("result") or chunk_obj
+                    if isinstance(result_obj, dict) and (
+                        b64_data := (result_obj.get("audioChunk") or {}).get("data")
+                    ):
                         pcm = carry + base64.b64decode(b64_data)
                         if len(pcm) >= 2:
                             yield pcm[: len(pcm) & ~1]

@@ -411,12 +411,21 @@ def _yandex_config_option_schema(
 
     merged_chat_models = list(CHAT_MODELS)
     merged_image_models = list(IMAGE_MODELS)
+    seen_chat_bases = {m.removesuffix("/latest") for m in merged_chat_models}
+    current_model = str(options.get(CONF_CHAT_MODEL, "")).strip()
+    if current_model and current_model not in merged_chat_models:
+        merged_chat_models.insert(0, current_model)
+        seen_chat_bases.add(current_model.removesuffix("/latest"))
+
     for dm in discovered_models or []:
         if subentry_type == "ai_task_image":
             if dm not in merged_image_models:
                 merged_image_models.append(dm)
-        elif dm not in merged_chat_models:
-            merged_chat_models.append(dm)
+        else:
+            dm_base = dm.removesuffix("/latest")
+            if dm not in merged_chat_models and dm_base not in seen_chat_bases:
+                merged_chat_models.append(dm)
+                seen_chat_bases.add(dm_base)
 
     chat_model_choices = [
         SelectOptionDict(label=CHAT_MODEL_LABELS.get(m, m), value=m)

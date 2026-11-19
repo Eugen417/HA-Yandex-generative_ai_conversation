@@ -3,12 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import io
 import json
 import logging
+from pathlib import Path
 import re
 from typing import Any
 
 import aiohttp
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None  # type: ignore[assignment]
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -25,7 +33,11 @@ MODELS_LIST_URLS = (
     "https://ai.api.cloud.yandex.net/v1/models",
 )
 GEN_SEARCH_URL = "https://searchapi.api.cloud.yandex.net/v2/gen/search"
+IMAGE_BY_IMAGE_URL = "https://searchapi.api.cloud.yandex.net/v2/image/search_by_image"
 RESPONSES_URL = "https://ai.api.cloud.yandex.net/v1/responses"
+
+_INLINE_IMAGE_TAG_RE = re.compile(r"\[image:\s*([^\]]+?)\s*\]", flags=re.IGNORECASE)
+_ALLOWED_LOCAL_IMAGE_DIRS = ("/config", "/media", "/share", "/tmp")
 
 
 class YandexAuthError(Exception):
@@ -161,9 +173,107 @@ def normalize_discovered_models(
         else:
             parts = mid.removeprefix(generic_prefix).split("/", 1)
             short = parts[1] if len(parts) == 2 and parts[0] == clean_folder else mid
+        if prefix == "gpt" and (
+            short.startswith("speech-realtime") or short.endswith("/deprecated")
+        ):
+            continue
         if short and short not in normalized:
             normalized.append(short)
     return normalized
+
+
+def extract_inline_image_tags(text: str) -> tuple[str, list[str]]:
+    """Extract `[image: <url_or_path>]` tags from chat text and return (clean_text, sources)."""
+    if not text or "[image:" not in text.lower():
+        return text, []
+    sources = [m.strip() for m in _INLINE_IMAGE_TAG_RE.findall(text) if m.strip()]
+    cleaned = _INLINE_IMAGE_TAG_RE.sub("", text).strip()
+    return cleaned, sources
+
+
+def _normalize_image_bytes(
+    raw_bytes: bytes, mime_hint: str = "image/jpeg", max_bytes: int = 2_500_000
+) -> tuple[bytes, str]:
+    """Ensure image fits Yandex SearchByImage (<=3MB) and Vision API limits."""
+    if not raw_bytes:
+        raise ValueError("Empty image bytes")
+
+    detected_mime = mime_hint
+    if raw_bytes.startswith(b"\xff\xd8"):
+        detected_mime = "image/jpeg"
+    elif raw_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        detected_mime = "image/png"
+    elif raw_bytes.startswith(b"GIF8"):
+        detected_mime = "image/gif"
+    elif raw_bytes[:4] == b"RIFF" and raw_bytes[8:12] == b"WEBP":
+        detected_mime = "image/webp"
+
+    if (
+        Image is not None
+        and (
+            len(raw_bytes) > max_bytes
+            or detected_mime not in ("image/jpeg", "image/png")
+        )
+    ):
+        with Image.open(io.BytesIO(raw_bytes)) as img:
+            rgb = img.convert("RGB")
+            rgb.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+            out = io.BytesIO()
+            rgb.save(out, format="JPEG", quality=88, optimize=True)
+            return out.getvalue(), "image/jpeg"
+
+    return raw_bytes, detected_mime
+
+
+def _read_local_image_sync(hass_config_dir: str, raw_path: str) -> tuple[bytes, str]:
+    """Read and normalize a local image file from allowed HA directories."""
+    p = Path(raw_path).expanduser().resolve()
+    allowed_roots = [
+        Path(hass_config_dir).resolve(),
+        *(Path(d).resolve() for d in _ALLOWED_LOCAL_IMAGE_DIRS if Path(d).exists()),
+    ]
+    if not any(p == root or root in p.parents for root in allowed_roots):
+        raise ValueError(f"Image path outside allowed directories: {raw_path}")
+    return _normalize_image_bytes(p.read_bytes())
+
+
+async def async_load_image_source(
+    hass: HomeAssistant, source: str
+) -> tuple[bytes, str] | None:
+    """Load an image from HTTP(S) URL (e.g. VK CDN) or local HA path (e.g. Telegram download)."""
+    clean_src = source.strip()
+    if not clean_src:
+        return None
+    try:
+        if clean_src.startswith(("http://", "https://")):
+            session = async_get_clientsession(hass)
+            async with session.get(
+                clean_src,
+                timeout=aiohttp.ClientTimeout(total=25),
+            ) as resp:
+                if resp.status != 200:
+                    _LOGGER.warning(
+                        "Failed to fetch chat image URL %s: HTTP %s",
+                        clean_src[:80],
+                        resp.status,
+                    )
+                    return None
+                mime = (resp.headers.get("Content-Type") or "image/jpeg").split(";")[0]
+                raw = await resp.read()
+                if len(raw) > 15_000_000:
+                    _LOGGER.warning("Chat image too large (>15MB): %s", len(raw))
+                    return None
+                return await hass.async_add_executor_job(
+                    _normalize_image_bytes, raw, mime
+                )
+
+        config_dir = hass.config.config_dir if hasattr(hass, "config") else "/config"
+        return await hass.async_add_executor_job(
+            _read_local_image_sync, config_dir, clean_src
+        )
+    except Exception as err:  # noqa: BLE001
+        _LOGGER.warning("Failed to load chat image '%s': %s", clean_src[:80], err)
+        return None
 
 
 def _parse_gen_search_payload(raw_text: str) -> tuple[str, list[dict[str, str]]]:
@@ -326,5 +436,87 @@ async def async_yandex_web_search(
     return {
         "error": f"Не удалось выполнить поиск Yandex Search ({gen_status or 'timeout'}): {gen_err_text}"
     }
+
+
+async def async_yandex_image_search(
+    hass: HomeAssistant,
+    *,
+    api_key: str,
+    folder_id: str,
+    image_bytes: bytes,
+    site: str = "",
+    disable_data_logging: bool = True,
+) -> dict[str, Any]:
+    """Execute reverse image search via Yandex Search API v2 (/v2/image/search_by_image)."""
+    if not image_bytes:
+        return {"error": "Empty image data"}
+
+    norm_bytes, _ = await hass.async_add_executor_job(
+        _normalize_image_bytes, image_bytes
+    )
+    headers = build_yandex_headers(
+        api_key,
+        folder_id,
+        disable_data_logging=disable_data_logging,
+    )
+    payload: dict[str, Any] = {
+        "folderId": folder_id.strip(),
+        "data": base64.b64encode(norm_bytes).decode("ascii"),
+        "familyMode": "FAMILY_MODE_MODERATE",
+    }
+    if site.strip():
+        payload["site"] = site.strip()
+
+    session = async_get_clientsession(hass)
+    try:
+        async with session.post(
+            IMAGE_BY_IMAGE_URL,
+            headers=headers,
+            json=payload,
+            timeout=aiohttp.ClientTimeout(total=35),
+        ) as resp:
+            if resp.status == 200:
+                res_json = await resp.json()
+                raw_images = res_json.get("images") or []
+                matches: list[dict[str, str]] = []
+                for item in raw_images:
+                    if not isinstance(item, dict):
+                        continue
+                    page_url = str(item.get("pageUrl") or item.get("page_url") or "").strip()
+                    page_title = str(
+                        item.get("pageTitle") or item.get("page_title") or ""
+                    ).strip()
+                    passage = str(item.get("passage") or "").strip()
+                    host = str(item.get("host") or "").strip()
+                    if page_url or page_title or passage:
+                        matches.append(
+                            {
+                                "title": page_title or host or page_url,
+                                "snippet": passage,
+                                "host": host,
+                                "url": page_url,
+                            }
+                        )
+                    if len(matches) >= 8:
+                        break
+                return {
+                    "matches": matches,
+                    "cbir_id": str(res_json.get("id") or ""),
+                    "provider": "yandex_search_by_image",
+                }
+            if resp.status in (401, 403):
+                return {
+                    "error": (
+                        "Нет доступа к Yandex Search API по картинке (HTTP 403). "
+                        "Назначьте сервисному аккаунту роль 'search-api.webSearch.user'."
+                    )
+                }
+            err_body = (await resp.text())[:300]
+            return {
+                "error": f"Ошибка поиска по картинке Yandex ({resp.status}): {err_body}"
+            }
+    except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+        return {"error": f"Ошибка соединения с Yandex Image Search: {err}"}
+
 
 

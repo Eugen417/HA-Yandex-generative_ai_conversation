@@ -60,14 +60,19 @@ from .const import (
 )
 from .helpers import (
     CHAT_COMPLETIONS_URL,
+    async_load_image_source,
+    async_yandex_image_search,
     async_yandex_web_search,
     build_model_uri,
     build_yandex_headers,
+    extract_inline_image_tags,
 )
 
 _LOGGER = logging.getLogger(__name__)
 MAX_TOOL_ITERATIONS = 10
 WEB_SEARCH_TOOL_NAME = "yandex_web_search"
+IMAGE_SEARCH_TOOL_NAME = "yandex_image_search"
+INTERNAL_SEARCH_TOOLS = {WEB_SEARCH_TOOL_NAME, IMAGE_SEARCH_TOOL_NAME}
 
 _SUPPORTS_THINKING_CONTENT = any(
     f.name == "thinking_content" for f in fields(conversation.AssistantContent)
@@ -95,11 +100,32 @@ WEB_SEARCH_TOOL_SPEC: dict[str, Any] = {
     },
 }
 
+IMAGE_SEARCH_TOOL_SPEC: dict[str, Any] = {
+    "type": "function",
+    "function": {
+        "name": IMAGE_SEARCH_TOOL_NAME,
+        "description": (
+            "Reverse image search via Yandex Smart Camera (Yandex Images CBIR) for "
+            "the user's attached photo: identifies exact products, models, plants, "
+            "parts, landmarks, brands, and returns matching web pages and store links."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "site": {
+                    "type": "string",
+                    "description": "Optional website domain filter (leave empty for all sites)",
+                }
+            },
+        },
+    },
+}
+
 WEB_SEARCH_SYSTEM_HINT = (
-    "\nТебе доступен инструмент поиска в интернете `yandex_web_search`. "
-    "Вызывай его, когда пользователь спрашивает актуальные новости, курсы валют, "
-    "погоду вне датчиков дома, расписания, цены, события или факты, требующие "
-    "свежей проверки в интернете."
+    "\nТебе доступен поиск в интернете `yandex_web_search` (для актуальных новостей, "
+    "курсов, погоды, цен и фактов). Если пользователь прикрепил фото и просит "
+    "опознать товар, модель, растение, деталь, место или найти где купить — "
+    "дополнительно вызывай поиск по картинке `yandex_image_search`."
 )
 
 
@@ -267,10 +293,11 @@ async def _async_build_chat_messages(
     chat_contents: list[conversation.Content],
     *,
     web_search_enabled: bool = False,
-) -> tuple[list[dict[str, Any]], bool]:
+) -> tuple[list[dict[str, Any]], bool, bytes | None]:
     """Convert ChatLog.content into OpenAI-compatible Yandex Chat messages."""
     messages: list[dict[str, Any]] = []
     has_images = False
+    latest_image_bytes: bytes | None = None
 
     last_user_idx = 0
     for idx, item in enumerate(chat_contents):
@@ -288,31 +315,46 @@ async def _async_build_chat_messages(
                 messages.append({"role": "system", "content": sys_text})
 
         elif isinstance(content, conversation.UserContent):
+            raw_text = content.content or ""
+            cleaned_text, inline_sources = extract_inline_image_tags(raw_text)
             attachments = getattr(content, "attachments", None) or []
             image_attachments = [
                 att
                 for att in attachments
                 if str(getattr(att, "mime_type", "")).startswith("image/")
             ]
-            if image_attachments:
+
+            loaded_images: list[tuple[bytes, str]] = []
+            for att in image_attachments:
+                img_bytes = await hass.async_add_executor_job(att.path.read_bytes)
+                loaded_images.append((img_bytes, str(att.mime_type)))
+
+            if idx == last_user_idx:
+                for src in inline_sources:
+                    loaded = await async_load_image_source(hass, src)
+                    if loaded is not None:
+                        loaded_images.append(loaded)
+
+            if loaded_images:
                 has_images = True
+                latest_image_bytes = loaded_images[-1][0]
                 parts: list[dict[str, Any]] = [
-                    {"type": "text", "text": content.content or "Опиши это изображение."}
+                    {
+                        "type": "text",
+                        "text": cleaned_text or "Опиши это изображение и определи, что на нём.",
+                    }
                 ]
-                for att in image_attachments:
-                    img_bytes = await hass.async_add_executor_job(att.path.read_bytes)
+                for img_bytes, mime_str in loaded_images:
                     b64_str = base64.b64encode(img_bytes).decode("utf-8")
                     parts.append(
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{att.mime_type};base64,{b64_str}"
-                            },
+                            "image_url": {"url": f"data:{mime_str};base64,{b64_str}"},
                         }
                     )
                 messages.append({"role": "user", "content": parts})
             else:
-                messages.append({"role": "user", "content": content.content or " "})
+                messages.append({"role": "user", "content": cleaned_text or " "})
 
         elif isinstance(content, conversation.AssistantContent):
             if content.tool_calls:
@@ -351,7 +393,7 @@ async def _async_build_chat_messages(
                 }
             )
 
-    return messages, has_images
+    return messages, has_images, latest_image_bytes
 
 
 class YandexAIBaseLLMEntity(Entity):
@@ -442,34 +484,64 @@ class YandexAIBaseLLMEntity(Entity):
         self,
         search_calls: list[dict[str, Any]],
         model_name: str,
+        latest_image_bytes: bytes | None = None,
     ) -> list[dict[str, Any]]:
-        """Execute internal yandex_web_search tool calls and return tool messages."""
+        """Execute internal yandex_web_search / yandex_image_search tool calls."""
         tool_messages: list[dict[str, Any]] = []
         for call in search_calls:
             call_id = str(call.get("id") or "web_search_call")
-            args = self._parse_tool_arguments(
-                call.get("function", {}).get("arguments")
-            )
-            query = str(args.get("query") or "").strip()
-            _LOGGER.info("Yandex Web Search tool invoked: query=%r", query)
-            search_res = await async_yandex_web_search(
-                self.hass,
-                api_key=self.api_key,
-                folder_id=self.folder_id,
-                query=query,
-                model_name=model_name,
-                disable_data_logging=self.disable_data_logging,
-            )
-            if self.hass is not None and "answer" in search_res:
-                async_dispatcher_send(
+            fn_obj = call.get("function") or {}
+            fn_name = str(fn_obj.get("name") or WEB_SEARCH_TOOL_NAME)
+            args = self._parse_tool_arguments(fn_obj.get("arguments"))
+
+            if fn_name == IMAGE_SEARCH_TOOL_NAME:
+                if not latest_image_bytes:
+                    search_res: dict[str, Any] = {
+                        "error": "No attached image found for reverse image search"
+                    }
+                else:
+                    site = str(args.get("site") or "").strip()
+                    _LOGGER.info("Yandex Image Search (CBIR) invoked: site=%r", site)
+                    search_res = await async_yandex_image_search(
+                        self.hass,
+                        api_key=self.api_key,
+                        folder_id=self.folder_id,
+                        image_bytes=latest_image_bytes,
+                        site=site,
+                        disable_data_logging=self.disable_data_logging,
+                    )
+                    if self.hass is not None and "matches" in search_res:
+                        async_dispatcher_send(
+                            self.hass,
+                            f"{DOMAIN}_usage_{self.subentry.subentry_id}",
+                            {
+                                "tokens": 0,
+                                "cost_rub": WEB_SEARCH_COST_RUB,
+                                "model": f"{model_name} + image_search",
+                            },
+                        )
+            else:
+                query = str(args.get("query") or "").strip()
+                _LOGGER.info("Yandex Web Search tool invoked: query=%r", query)
+                search_res = await async_yandex_web_search(
                     self.hass,
-                    f"{DOMAIN}_usage_{self.subentry.subentry_id}",
-                    {
-                        "tokens": 0,
-                        "cost_rub": WEB_SEARCH_COST_RUB,
-                        "model": f"{model_name} + web_search",
-                    },
+                    api_key=self.api_key,
+                    folder_id=self.folder_id,
+                    query=query,
+                    model_name=model_name,
+                    disable_data_logging=self.disable_data_logging,
                 )
+                if self.hass is not None and "answer" in search_res:
+                    async_dispatcher_send(
+                        self.hass,
+                        f"{DOMAIN}_usage_{self.subentry.subentry_id}",
+                        {
+                            "tokens": 0,
+                            "cost_rub": WEB_SEARCH_COST_RUB,
+                            "model": f"{model_name} + web_search",
+                        },
+                    )
+
             tool_messages.append(
                 {
                     "role": "tool",
@@ -594,7 +666,7 @@ class YandexAIBaseLLMEntity(Entity):
                 ha_inputs: list[llm.ToolInput] = []
                 for tc in tool_buffer.build():
                     fn_name = tc["function"]["name"]
-                    if fn_name == WEB_SEARCH_TOOL_NAME:
+                    if fn_name in INTERNAL_SEARCH_TOOLS:
                         internal_search_calls.append(tc)
                     else:
                         ha_inputs.append(
@@ -682,7 +754,7 @@ class YandexAIBaseLLMEntity(Entity):
                 if not fn_name:
                     continue
                 call_id = str(tc.get("id") or f"call_{idx}_{fn_name}")
-                if fn_name == WEB_SEARCH_TOOL_NAME:
+                if fn_name in INTERNAL_SEARCH_TOOLS:
                     internal_search_calls.append(
                         {
                             "id": call_id,
@@ -772,8 +844,10 @@ class YandexAIBaseLLMEntity(Entity):
         replace_trailing_assistant = False
 
         for _iteration in range(MAX_TOOL_ITERATIONS):
-            base_messages, has_images = await _async_build_chat_messages(
-                self.hass, chat_log.content, web_search_enabled=web_search_enabled
+            base_messages, has_images, latest_image_bytes = (
+                await _async_build_chat_messages(
+                    self.hass, chat_log.content, web_search_enabled=web_search_enabled
+                )
             )
             if (
                 replace_trailing_assistant
@@ -790,6 +864,14 @@ class YandexAIBaseLLMEntity(Entity):
             ):
                 effective_model = DEFAULT_VISION_MODEL
 
+            turn_tools = list(tools)
+            if (
+                web_search_enabled
+                and latest_image_bytes is not None
+                and IMAGE_SEARCH_TOOL_NAME not in seen_names
+            ):
+                turn_tools.append(IMAGE_SEARCH_TOOL_SPEC)
+
             payload: dict[str, Any] = {
                 "model": build_model_uri(self.folder_id, effective_model, "gpt"),
                 "messages": messages,
@@ -798,8 +880,8 @@ class YandexAIBaseLLMEntity(Entity):
             }
             if reasoning_effort in ("low", "medium", "high"):
                 payload["reasoning_effort"] = reasoning_effort
-            if tools:
-                payload["tools"] = tools
+            if turn_tools:
+                payload["tools"] = turn_tools
 
             if structure is not None and (
                 probatio is not None or voluptuous_openapi is not None
@@ -842,7 +924,7 @@ class YandexAIBaseLLMEntity(Entity):
                         if not had_ha_tools:
                             replace_trailing_assistant = True
                     search_results = await self._async_run_web_search_calls(
-                        search_calls, effective_model
+                        search_calls, effective_model, latest_image_bytes
                     )
                     internal_turn_messages.append(assistant_search_msg)
                     internal_turn_messages.extend(search_results)

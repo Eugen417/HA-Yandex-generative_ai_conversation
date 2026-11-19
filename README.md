@@ -247,13 +247,13 @@ response_variable: camera_analysis
   <img width="390" alt="Пример работы Поиска Яндекса — курс валют со ссылками" src="images/assist_web_search_rates.png" />
 </p>
 
-### Пример 1: ИИ-чат во ВКонтакте (текст + голосовые сообщения + веб-поиск) через [VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)
+### Пример 1: ИИ-чат во ВКонтакте (текст + голосовые + фото Vision + Умная камера Яндекса) через [VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)
 
-Интеграция **VK Notify** в режиме Long Poll принимает как обычные сообщения (`text`), так и готовые расшифровки голосовых сообщений (`transcript`), умеет показывать статус *«печатает...»* и цитировать исходное сообщение (`reply_to`):
+Интеграция **VK Notify** в режиме Long Poll принимает обычные сообщения (`text`), расшифровки голосовых (`transcript`) и прямые ссылки на прикреплённые фотографии (`attachments`). Передача тега `[image: <url_или_путь>]` в `conversation.process` автоматически включает анализ фото через **`Qwen3.6 35B Vision`** и инструмент обратного поиска по картинке **`yandex_image_search`** (*«Умная камера Яндекса»* — распознавание товаров, растений, деталей со ссылками на магазины):
 
 ```yaml
-alias: "ВК: Умный чат-бот Yandex AI (живой диалог в ЛС + по имени Бот190 в беседе)"
-description: "В личке отвечает сразу живым диалогом, а в групповой беседе — только при обращении 'Бот190' / 'бот 190'"
+alias: "ВК: Умный чат-бот Yandex AI (текст, голос, фото Vision и поиск по картинке)"
+description: "В личке отвечает сразу живым диалогом (включая голые фото), а в беседе — при обращении 'Бот190' / 'бот 190'"
 mode: queued
 max: 10
 triggers:
@@ -264,12 +264,19 @@ variables:
     {{ (trigger.event.data.text
         if (trigger.event.data.text | default('') | trim) != ''
         else (trigger.event.data.transcript | default(''))) | trim }}
+  photo_tags: >-
+    {% set photos = (trigger.event.data.attachments | default([]))
+       | selectattr('type', 'defined')
+       | selectattr('type', 'equalto', 'photo')
+       | map(attribute='url') | list %}
+    {% for u in photos %}[image: {{ u }}] {% endfor %}
   is_private_chat: "{{ (trigger.event.data.peer_id | int(0)) < 2000000000 }}"
   wake_pattern: "^(?:\\[club\\d+\\|[^\\]]+\\]\\s*)?бот\\s*190\\b[,:\\s-]*"
   is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
   clean_query: >-
     {{ (raw_query | regex_replace(wake_pattern, '', ignorecase=True) | trim)
        if is_addressed_to_bot else raw_query }}
+  final_prompt: "{{ (clean_query ~ ' ' ~ (photo_tags | trim)) | trim }}"
 conditions:
   # 1. Защита от чужих чатов (отсекаем не привязанные в VK Notify диалоги)
   - condition: template
@@ -277,9 +284,9 @@ conditions:
   # 2. Белый список VK ID пользователей (укажите свои числовые from_id из ВК)
   - condition: template
     value_template: "{{ trigger.event.data.from_id in [123456789, 987654321] }}"
-  # 3. В личке — отвечаем сразу; в групповой беседе — только при обращении "Бот190"
+  # 3. В личке — отвечаем на любой текст/голос/фото; в беседе — при обращении "Бот190"
   - condition: template
-    value_template: "{{ clean_query != '' and (is_private_chat or is_addressed_to_bot) }}"
+    value_template: "{{ final_prompt != '' and (is_private_chat or is_addressed_to_bot) }}"
 actions:
   - action: vk_notify.set_activity
     target:
@@ -289,7 +296,7 @@ actions:
   - action: conversation.process
     data:
       agent_id: conversation.yandex_bot_chata
-      text: "{{ clean_query }}"
+      text: "{{ final_prompt }}"
       conversation_id: "vk_{{ trigger.event.data.peer_id }}"
     response_variable: ai_reply
   - action: vk_notify.send_message
@@ -301,7 +308,7 @@ actions:
       reply_to: "{{ trigger.event.data.conversation_message_id }}"
 ```
 
-### Пример 2: Команда `/камера` во ВКонтакте — снимок + ИИ-описание от Gemma 3 Vision
+### Пример 2: Команда `/камера` во ВКонтакте — снимок + ИИ-описание от Qwen3.6 35B Vision
 
 ```yaml
 alias: "ВК: Осмотр камеры по команде /камера"
@@ -341,18 +348,25 @@ actions:
       reply_to: "{{ trigger.event.data.conversation_message_id }}"
 ```
 
-### Пример 3: ИИ-чат в Telegram (`telegram_bot`) с Поиском Яндекса и историей диалога
+### Пример 3: ИИ-чат в Telegram (`telegram_bot` — текст + приём фото + Поиск Яндекса)
 
 ```yaml
-alias: "Telegram: Чат-бот Yandex AI Studio (живой диалог в ЛС + по имени Бот190 в группе)"
-description: "В личном чате отвечает сразу, а в группе — при обращении 'Бот190'"
+alias: "Telegram: Чат-бот Yandex AI Studio (текст + фото Vision + поиск по картинке)"
+description: "Принимает текст и фотографии в ЛС сразу, а в группе — при обращении 'Бот190'"
 mode: queued
 max: 10
 triggers:
   - trigger: event
     event_type: telegram_text
+    id: text_msg
+  - trigger: event
+    event_type: telegram_attachment
+    id: photo_msg
 variables:
-  raw_query: "{{ trigger.event.data.text | default('') | trim }}"
+  raw_query: "{{ (trigger.event.data.text | default(trigger.event.data.caption | default(''))) | trim }}"
+  has_photo: >-
+    {{ trigger.id == 'photo_msg'
+       and (trigger.event.data.file_mime_type | default('image/jpeg')).startswith('image/') }}
   is_private_chat: "{{ (trigger.event.data.chat_id | int(0)) > 0 }}"
   wake_pattern: "^(?:@\\w+\\s*)?бот\\s*190\\b[,:\\s-]*"
   is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
@@ -363,20 +377,35 @@ conditions:
   # Белый список разрешённых Telegram user_id
   - condition: template
     value_template: "{{ trigger.event.data.user_id in [111222333, 444555666] }}"
-  # В ЛС — живой разговор; в группе — только при обращении "Бот190"
+  # В ЛС — живой разговор (текст или фото); в группе — при обращении "Бот190"
   - condition: template
-    value_template: "{{ clean_query != '' and (is_private_chat or is_addressed_to_bot) }}"
+    value_template: "{{ (clean_query != '' or has_photo) and (is_private_chat or is_addressed_to_bot) }}"
 actions:
   - action: telegram_bot.send_chat_action
     data:
       chat_id: "{{ trigger.event.data.chat_id }}"
       chat_action: typing
-  - action: conversation.process
-    data:
-      agent_id: conversation.yandex_bot_chata
-      text: "{{ clean_query }}"
-      conversation_id: "tg_{{ trigger.event.data.chat_id }}"
-    response_variable: ai_reply
+  - if:
+      - condition: template
+        value_template: "{{ has_photo }}"
+    then:
+      - action: telegram_bot.download_file
+        data:
+          file_id: "{{ trigger.event.data.file_id }}"
+        response_variable: tg_dl
+      - action: conversation.process
+        data:
+          agent_id: conversation.yandex_bot_chata
+          text: "{{ (clean_query ~ ' [image: ' ~ tg_dl.file_path ~ ']') | trim }}"
+          conversation_id: "tg_{{ trigger.event.data.chat_id }}"
+        response_variable: ai_reply
+    else:
+      - action: conversation.process
+        data:
+          agent_id: conversation.yandex_bot_chata
+          text: "{{ clean_query }}"
+          conversation_id: "tg_{{ trigger.event.data.chat_id }}"
+        response_variable: ai_reply
   - action: telegram_bot.send_message
     data:
       chat_id: "{{ trigger.event.data.chat_id }}"

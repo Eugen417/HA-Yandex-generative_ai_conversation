@@ -225,10 +225,12 @@ Thanks to the `Subentries` architecture, you can split responsibilities between 
   <img width="390" alt="Yandex Web Search example — exchange rate with source links" src="images/assist_web_search_rates.png" />
 </p>
 
-### Example 1: VKontakte AI Chatbot (Text + Voice Messages + Web Search) via [VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)
+### Example 1: VKontakte AI Chatbot (Text + Voice + Photo Vision + Reverse Image Search) via [VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)
+
+Passing `[image: <url_or_local_path>]` inside `conversation.process` automatically enables **`Qwen3.6 35B Vision`** analysis plus the **`yandex_image_search`** reverse image search tool (*Yandex Smart Camera / CBIR*) when Web Search is enabled:
 
 ```yaml
-alias: "VK: Yandex AI Chatbot (Live DM + Wake Word 'Bot190' in Group Chats)"
+alias: "VK: Yandex AI Chatbot (Text, Voice, Photo Vision & Reverse Image Search)"
 mode: queued
 max: 10
 triggers:
@@ -239,12 +241,19 @@ variables:
     {{ (trigger.event.data.text
         if (trigger.event.data.text | default('') | trim) != ''
         else (trigger.event.data.transcript | default(''))) | trim }}
+  photo_tags: >-
+    {% set photos = (trigger.event.data.attachments | default([]))
+       | selectattr('type', 'defined')
+       | selectattr('type', 'equalto', 'photo')
+       | map(attribute='url') | list %}
+    {% for u in photos %}[image: {{ u }}] {% endfor %}
   is_private_chat: "{{ (trigger.event.data.peer_id | int(0)) < 2000000000 }}"
   wake_pattern: "^(?:\\[club\\d+\\|[^\\]]+\\]\\s*)?(?:бот|bot)\\s*190\\b[,:\\s-]*"
   is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
   clean_query: >-
     {{ (raw_query | regex_replace(wake_pattern, '', ignorecase=True) | trim)
        if is_addressed_to_bot else raw_query }}
+  final_prompt: "{{ (clean_query ~ ' ' ~ (photo_tags | trim)) | trim }}"
 conditions:
   # 1. Ignore messages from unconfigured VK chats
   - condition: template
@@ -252,9 +261,9 @@ conditions:
   # 2. Whitelist allowed VKontakte user IDs (from_id)
   - condition: template
     value_template: "{{ trigger.event.data.from_id in [123456789, 987654321] }}"
-  # 3. Direct messages: natural conversation; Group chats: require wake word 'Bot190'
+  # 3. Direct messages: natural conversation & photos; Group chats: require wake word 'Bot190'
   - condition: template
-    value_template: "{{ clean_query != '' and (is_private_chat or is_addressed_to_bot) }}"
+    value_template: "{{ final_prompt != '' and (is_private_chat or is_addressed_to_bot) }}"
 actions:
   - action: vk_notify.set_activity
     target:
@@ -264,7 +273,7 @@ actions:
   - action: conversation.process
     data:
       agent_id: conversation.yandex_bot_chata
-      text: "{{ clean_query }}"
+      text: "{{ final_prompt }}"
       conversation_id: "vk_{{ trigger.event.data.peer_id }}"
     response_variable: ai_reply
   - action: vk_notify.send_message
@@ -276,17 +285,24 @@ actions:
       reply_to: "{{ trigger.event.data.conversation_message_id }}"
 ```
 
-### Example 2: Telegram AI Chatbot (`telegram_bot`) with Yandex Web Search
+### Example 2: Telegram AI Chatbot (`telegram_bot` — Text + Photo Vision + Reverse Image Search)
 
 ```yaml
-alias: "Telegram: Yandex AI Studio Chatbot (Live DM + Wake Word 'Bot190' in Groups)"
+alias: "Telegram: Yandex AI Studio Chatbot (Text + Photo Vision + Image Search)"
 mode: queued
 max: 10
 triggers:
   - trigger: event
     event_type: telegram_text
+    id: text_msg
+  - trigger: event
+    event_type: telegram_attachment
+    id: photo_msg
 variables:
-  raw_query: "{{ trigger.event.data.text | default('') | trim }}"
+  raw_query: "{{ (trigger.event.data.text | default(trigger.event.data.caption | default(''))) | trim }}"
+  has_photo: >-
+    {{ trigger.id == 'photo_msg'
+       and (trigger.event.data.file_mime_type | default('image/jpeg')).startswith('image/') }}
   is_private_chat: "{{ (trigger.event.data.chat_id | int(0)) > 0 }}"
   wake_pattern: "^(?:@\\w+\\s*)?(?:бот|bot)\\s*190\\b[,:\\s-]*"
   is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
@@ -297,20 +313,35 @@ conditions:
   # Whitelist allowed Telegram user IDs
   - condition: template
     value_template: "{{ trigger.event.data.user_id in [111222333, 444555666] }}"
-  # Direct messages: natural conversation; Groups: require wake word 'Bot190'
+  # Direct messages: natural conversation & photos; Groups: require wake word 'Bot190'
   - condition: template
-    value_template: "{{ clean_query != '' and (is_private_chat or is_addressed_to_bot) }}"
+    value_template: "{{ (clean_query != '' or has_photo) and (is_private_chat or is_addressed_to_bot) }}"
 actions:
   - action: telegram_bot.send_chat_action
     data:
       chat_id: "{{ trigger.event.data.chat_id }}"
       chat_action: typing
-  - action: conversation.process
-    data:
-      agent_id: conversation.yandex_bot_chata
-      text: "{{ clean_query }}"
-      conversation_id: "tg_{{ trigger.event.data.chat_id }}"
-    response_variable: ai_reply
+  - if:
+      - condition: template
+        value_template: "{{ has_photo }}"
+    then:
+      - action: telegram_bot.download_file
+        data:
+          file_id: "{{ trigger.event.data.file_id }}"
+        response_variable: tg_dl
+      - action: conversation.process
+        data:
+          agent_id: conversation.yandex_bot_chata
+          text: "{{ (clean_query ~ ' [image: ' ~ tg_dl.file_path ~ ']') | trim }}"
+          conversation_id: "tg_{{ trigger.event.data.chat_id }}"
+        response_variable: ai_reply
+    else:
+      - action: conversation.process
+        data:
+          agent_id: conversation.yandex_bot_chata
+          text: "{{ clean_query }}"
+          conversation_id: "tg_{{ trigger.event.data.chat_id }}"
+        response_variable: ai_reply
   - action: telegram_bot.send_message
     data:
       chat_id: "{{ trigger.event.data.chat_id }}"

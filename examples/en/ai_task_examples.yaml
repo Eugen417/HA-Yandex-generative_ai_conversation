@@ -1,0 +1,28 @@
+# Ready-to-use AI Task action snippets (for Home Assistant automations and scripts)
+
+generate_image_example:
+  action: ai_task.generate_image
+  data:
+    entity_id: ai_task.yandex_ai_task_image
+    task_name: "Today's weather"
+    instructions: "A cozy smart home in an autumn forest, soft warm light in the windows, cinematic lighting"
+  response_variable: generated_image
+
+generate_summary_example:
+  action: ai_task.generate_data
+  data:
+    entity_id: ai_task.yandex_ai_task
+    task_name: "Home status summary"
+    instructions: "Write a short morning greeting summary based on today's weather forecast and bedroom temperature."
+  response_variable: summary
+
+camera_vision_example:
+  action: ai_task.generate_data
+  data:
+    entity_id: ai_task.yandex_ai_task
+    task_name: "Front door camera analysis"
+    instructions: "Describe what is happening on the camera. Are there any people or vehicles?"
+    attachments:
+      - media_content_id: media-source://camera/camera.front_door
+        media_content_type: image/jpeg
+  response_variable: camera_analysis

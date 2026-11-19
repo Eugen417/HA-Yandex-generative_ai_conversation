@@ -1,0 +1,69 @@
+# Smart Telegram Chatbot (official telegram_bot integration, Home Assistant 2026+ schema)
+# - In Direct Messages (chat_id > 0): replies immediately to text and photos.
+# - In Group Chats (chat_id < 0): replies only when addressed by wake word "Bot190" / "bot 190".
+
+alias: 'Telegram: Yandex AI Studio Smart Chatbot (text & photos)'
+description: '100% HA 2026+ Visual Editor UI blocks: select your Telegram notify entity and Yandex AI agent with a mouse'
+triggers:
+  - trigger: event
+    event_type: telegram_text
+    id: text_msg
+  - trigger: event
+    event_type: telegram_attachment
+    id: photo_msg
+conditions:
+  - condition: template
+    value_template: '{{ trigger.event.data.user_id in [111222333, 444555666] }}'
+  - condition: template
+    value_template: >-
+      {{ (trigger.event.data.chat_id | int(0) > 0)
+         or ((trigger.event.data.text | default(trigger.event.data.caption | default('')))
+             is search('^/?(bot|бот)\s*190', ignorecase=True)) }}
+actions:
+  - variables:
+      raw_text: >-
+        {{ (trigger.event.data.text | default(trigger.event.data.caption | default(''))) | trim }}
+      clean_text: >-
+        {{ raw_text | regex_replace(find='^/?(bot|бот)\s*190[,:\s-]*', replace='', ignorecase=True) | trim }}
+      has_photo: >-
+        {{ trigger.id == 'photo_msg'
+           and (trigger.event.data.file_mime_type | default('image/jpeg')).startswith('image/') }}
+  - action: telegram_bot.send_chat_action
+    data:
+      entity_id:
+        - notify.telegram_bot_my_chat
+      chat_action: typing
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: '{{ has_photo }}'
+        sequence:
+          - action: telegram_bot.download_file
+            data:
+              file_id: '{{ trigger.event.data.file_id }}'
+            response_variable: tg_dl
+          - action: conversation.process
+            data:
+              agent_id: conversation.yandex_ai_conversation
+              text: '{{ ((clean_text if clean_text != "" else "Describe this image and identify what is shown.") ~ " [image: " ~ tg_dl.file_path ~ "]") | trim }}'
+              conversation_id: 'tg_{{ trigger.event.data.chat_id }}'
+            response_variable: ai_answer
+    default:
+      - action: conversation.process
+        data:
+          agent_id: conversation.yandex_ai_conversation
+          text: '{{ clean_text }}'
+          conversation_id: 'tg_{{ trigger.event.data.chat_id }}'
+        response_variable: ai_answer
+  - if:
+      - condition: template
+        value_template: '{{ ai_answer.response.speech.plain.speech is defined }}'
+    then:
+      - action: telegram_bot.send_message
+        data:
+          entity_id:
+            - notify.telegram_bot_my_chat
+          message: '{{ ai_answer.response.speech.plain.speech }}'
+          parse_mode: plain_text
+mode: queued
+max: 5

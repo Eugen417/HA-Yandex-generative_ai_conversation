@@ -17,7 +17,7 @@
   <a href="README.md">🇷🇺 Русский</a> | <b>🇬🇧 English</b>
 </p>
 
-A full-featured **Yandex AI Studio (YandexGPT, Alice AI ART, Gemma 3 Vision, and Yandex SpeechKit)** custom integration for **Home Assistant**, built on the modern `ConfigSubentry` and `ChatLog` service architecture (aligned with official **Google Gemini** and **Ollama** integrations, as well as [**Sber GigaChat AI**](https://github.com/Eugen417/HA-GigaChat-generative_ai_conversation)). Compatible with **Home Assistant 2025.8+ and 2026.x**.
+A full-featured **Yandex AI Studio (YandexGPT 5.1, Qwen3.6 Vision, Alice AI ART, and Yandex SpeechKit)** custom integration for **Home Assistant**, built on the modern `ConfigSubentry` and `ChatLog` service architecture (aligned with official **Google Gemini** and **Ollama** integrations, as well as [**Sber GigaChat AI**](https://github.com/Eugen417/HA-GigaChat-generative_ai_conversation)). Compatible with **Home Assistant 2025.8+ and 2026.x**.
 
 The integration combines **5 independent AI sub-services** under a single integration entry for **Assist** voice pipelines and smart home automations:
 
@@ -37,9 +37,10 @@ The integration combines **5 independent AI sub-services** under a single integr
 
 * 🧩 **Modern Modular Architecture (`Subentries`):** Just like *Google Gemini* and *Ollama*, each service (`Conversation`, `STT`, `TTS`, `AI Task`, `AI Task image`) is an independent service device with its own settings button ⚙️. You can add multiple conversation agents (e.g., one for smart speakers, another for Telegram bots, and a third for daily digests).
 * 🏠 **Full Smart Home Control (Native Tool Calling):** Uses Home Assistant's native `ChatLog` and `llm.ToolInput` pipeline. When asked *"What is the bedroom temperature?"* or *"Turn on the kitchen lights"*, the model invokes Home Assistant tools (`GetLiveContext`, `HassTurnOn`, MCP tools, etc.), reads live states, and responds naturally. Supports selecting multiple LLM tool providers simultaneously.
-* 🎭 **TTS Voice & Emotion Selection Directly in Assist (SpeechKit API v1 + API v3):** Supports both classic Yandex SpeechKit voices (*Alena, Filipp, Ermil, Jane, Madirus, Omazh, Zahar*) and 3rd-generation voices (*Dasha, Julia, Lera, Masha, Marina, Alexander, Kirill, Anton*) along with emotional roles (*Good/Joyful, Friendly, Strict, Whisper, Neutral, Evil*) right from the **Assist** pipeline dropdown.
+* 🎭 **TTS Voice & Emotion Selection Directly in Assist (SpeechKit v1, v3 & 4th-gen LiveTTS):** Supports classic voices (*Alena, Filipp, Ermil, Jane, Madirus, Omazh, Zahar*), 3rd-generation voices (*Dasha, Julia, Lera, Masha, Marina, Alexander, Kirill, Anton, Zamira, Zhanar, Saule, Yulduz, Madi*), and 4th-generation neural **LiveTTS** voices (*Irina, Sofia, Vera, Denis, Vasily, Sergey*) with conversational roles and sentence-by-sentence streaming.
+* 🔍 **Independent Yandex Web Search + "Smart Camera" (Reverse Image Search CBIR) & Chat Vision:** Separate toggles for live text Web Search (`GenSearch API v2`) and Reverse Image Search (`Yandex Images CBIR`), plus inline photo attachments in messenger chats via `[image: <URL_or_path>]`.
 * 🖼 **Dedicated AI Task Entities + Camera Vision:**
-  * **`Yandex AI Task`** — text/JSON generation (`ai_task.generate_data`) and **camera/image analysis (`SUPPORT_ATTACHMENTS`)** powered by **`gemma-3-27b-it/latest`**.
+  * **`Yandex AI Task`** — text/JSON generation (`ai_task.generate_data`) and **camera/image analysis (`SUPPORT_ATTACHMENTS`)** powered by **`qwen3.6-35b-a3b/latest`** (`256k` context).
   * **`Yandex AI Task image`** — image generation (`ai_task.generate_image`) powered by **Alice AI ART (`aliceai-image-art-3.0`)**.
 * 📊 **Token & Estimated Cost Tracking (`sensor.py`, Beta):** Automatically creates persistent diagnostic sensors (`RestoreSensor`) for tokens, TTS characters, STT requests, generated images, and approximate cost in `RUB`.
 * 🔍 **Built-in Diagnostics (`diagnostics.py`):** Exports configuration diagnostics with automatic redaction of secret API keys.
@@ -172,7 +173,7 @@ Each of the 5 sub-services automatically provides persistent diagnostic sensors 
 ## 🎨 Using AI Task (Image Generation, Structured Data & Camera Vision)
 
 The integration provides two dedicated `ai_task` entities:
-- **`Yandex AI Task`** (`ai_task.yandex_ai_task`) — text & structured JSON generation (`ai_task.generate_data`) via **YandexGPT**, plus multimodal camera/image analysis via **Gemma 3 27B Vision**.
+- **`Yandex AI Task`** (`ai_task.yandex_ai_task`) — text & structured JSON generation (`ai_task.generate_data`) via **YandexGPT Pro 5.1**, plus multimodal camera/image analysis via **Qwen3.6 35B Vision (`qwen3.6-35b-a3b/latest`)**.
 - **`Yandex AI Task image`** (`ai_task.yandex_ai_task_image`) — image generation (`ai_task.generate_image`) via **Alice AI ART (`aliceai-image-art-3.0`)**.
 
 ### Example 1: Generate an Image with Alice AI ART (`ai_task.generate_image`)
@@ -215,26 +216,71 @@ response_variable: camera_analysis
 
 ---
 
-## 💬 Automation Examples: VKontakte (VK Notify) & Telegram Chatbots with Web Search
+## 🔍 Web Search (`Yandex Search`), Vision & Reverse Image Search ("Smart Camera")
 
-Thanks to the `Subentries` architecture, you can split responsibilities between two separate conversation agents inside **Yandex AI Studio**:
-1. **`Yandex AI Conversation`** (for voice speakers & Assist): `AI tools = Assist`, **`Web Search = Off`** — ultra-fast smart home control.
-2. Click **`+ Add conversation agent`** and create **`Yandex Chat Bot`** (`conversation.yandex_bot_chata`): clear `AI tools` (or select read-only tools), enable **`Web Search (Yandex Search) = On`**, and choose a model such as `aliceai-llm/latest`, `qwen3-235b-a22b-fp8/latest`, or `yandexgpt-lite/latest`. *(Make sure your service account has the `search-api.webSearch.user` role — see [API_KEY_GUIDE.md](API_KEY_GUIDE.md)).*
+The integration separates **local multimodal image inspection (`Vision`)**, **text Web Search (`web_search`)**, and **Reverse Image Search (`image_search`)** into independent controls so you have full control over both photo privacy and billing costs.
+
+### 1. Three Modes for Web & Photo Intelligence
+
+| Mode | Tool / Endpoint | What It Does | Extra Search Fee |
+| :--- | :--- | :--- | :--- |
+| **👁 Local AI Vision Only (`Vision`)** | Multimodal `/v1/chat/completions` (`image_url`) | Reads utility meters, receipts, documents, error screens, and describes security camera snapshots **without uploading photos to any search engine**. | **0 RUB** *(LLM tokens only)* |
+| **🌐 Text Web Search (`web_search`)** | `yandex_web_search` (`POST /v2/gen/search` + `/v1/responses` fallback) | Fetches live weather forecasts, exchange rates, breaking news, prices, and schedules, returning answers with clickable `sources`. | **0.915 RUB** *(only when search is actually invoked)* |
+| **📷 Reverse Image Search (`image_search`)** | `yandex_image_search` (`POST /v2/image/search_by_image` CBIR) | **Yandex Smart Camera**: searches attached photos across Yandex Images to identify exact plant species, products, spare parts, landmarks, or brands, returning matching web pages and store links. | **0.915 RUB** *(only when image search is invoked)* |
+
+### 2. Yandex Cloud IAM Role Requirements
+
+Both **Web Search** and **Reverse Image Search** require the **`search-api.webSearch.user`** role on your service account (note that `ai.editor` covers `ai.*` only and **does not** grant `search-api.*` access!):
+- 🚀 **1-Click Setup:** creating a key via the **"Create API key"** button in the top-right corner of **[Yandex AI Studio](https://aistudio.yandex.ru/)** automatically assigns all required roles including `search-api`.
+- 🛠 **Manual Setup in Yandex Cloud Console:** assign **`search-api.webSearch.user`** to your service account and leave the API key *Scopes* field empty (or include `yc.search-api.execute`) — see **[API_KEY_GUIDE.md](API_KEY_GUIDE.md)**.
+
+### 3. Model Requirements (Especially for Reverse Image Search!)
+
+* **For Text Web Search (`Web Search`):** works with any model that supports **Function Calling (`tools`)**: `yandexgpt-5.1/latest` *(default)*, ultra-fast `aliceai-llm-flash/latest`, `aliceai-llm/latest`, `deepseek-v4.1-flash/latest`, `qwen3.6-35b-a3b/latest`.
+* **For Photo Analysis & Reverse Image Search (`Reverse Image Search`):** requires a multimodal model that supports **both image inputs (`Vision`) AND Function Calling (`tools`)** simultaneously:
+  * ✅ **Recommended Model — `Qwen3.6 35B Vision` (`qwen3.6-35b-a3b/latest`, `0.20 / 0.30 RUB` per 1K, 256k context):** natively inspects the photo, decides when to call `yandex_image_search`, cross-checks Yandex Images results against your photo, and delivers an accurate answer (multimodal `deepseek-v4.1-flash/latest` is also supported).
+  * ✅ **Automatic Vision Model Switching:** if you keep **"Recommended model settings" = On** (`yandexgpt-5.1/latest`) or select a text-only model (`aliceai-llm-flash/latest`, `aliceai-llm/latest`, `yandexgpt-5-pro/latest`), the integration **automatically switches** any turn containing an image to **`qwen3.6-35b-a3b/latest`**, while keeping your chosen model for regular text turns!
+  * ⚠️ **Important Limitation of `Gemma 3 27B Vision` (`gemma-3-27b-it/latest`):** this `[legacy]` model only describes images as plain text and **does NOT support Function Calling (`tools`)** in Yandex AI Studio. Do **not** select `Gemma 3` on agents where *Reverse Image Search*, *Web Search*, or *AI tools* are enabled — use **`Qwen3.6 35B Vision` (`qwen3.6-35b-a3b/latest`)** instead.
+
+### 4. Step-by-Step `Conversation` Agent Setup for Search & Smart Camera
+
+Using `Subentries`, the recommended best practice is to split smart-home voice control and messenger search into **two separate conversation agents**:
+
+1. **Agent #1 — `Yandex AI Conversation` (for Voice Speakers & Assist):**
+   - `AI tools`: check `Device control` *(keep admin `Home Assistant` unchecked for voice satellites)*;
+   - `Web Search`: **Off**, `Reverse Image Search`: **Off** — ensures instant device control without re-sending your entire entity list on a second pass.
+2. **Agent #2 — click `+ Add conversation agent` and create e.g. `Yandex Chat Bot` (for VKontakte / Telegram):**
+   - Click the gear icon ⚙️ next to the new agent:
+   - **AI tools:** clear all selections (for a safe family/group chatbot without switch access) or keep `Device control` if you want device control from chat;
+   - **Web Search (Yandex Search — text):** turn **On**;
+   - **Reverse Image Search (Yandex Images — Smart Camera):** turn **On** *(to identify plants, products, and parts via Yandex Images)* or keep **Off** *(if you only want `Qwen3.6 Vision` to read meters/receipts locally)*;
+   - **Recommended model settings:** keep **On** (automatic `Qwen3.6 Vision` fallback on photo turns) or uncheck and explicitly select **`Qwen3.6 35B Vision` (`qwen3.6-35b-a3b/latest`)** as the primary chatbot model.
+3. **Passing Photos to `conversation.process`:**
+   - Append **`[image: <URL_or_local_path>]`** to the `text` field in your automation (supports `https://...` VKontakte photo URLs as well as local files in `/config`, `/media`, `/share`, `/tmp` downloaded via `telegram_bot.download_file`).
+   - The integration automatically downloads the image, normalizes it to `JPEG <= 2.5 MB`, passes it to `Qwen3.6 35B Vision`, and preserves dialogue context via `conversation_id` so users can ask natural follow-up questions about the identified object!
 
 <p align="center">
-  <img width="390" alt="Yandex Web Search example — live weather" src="images/assist_web_search_weather.png" />
-  <img width="390" alt="Yandex Web Search example — exchange rate with source links" src="images/assist_web_search_rates.png" />
+  <img width="380" alt="Yandex Web Search example — live weather" src="images/assist_web_search_weather.png" />
+  <img width="380" alt="Yandex Web Search example — exchange rate with source links" src="images/assist_web_search_rates.png" />
 </p>
 
-All ready-to-import YAML automations are organized in the **[`examples/`](examples/)** directory:
+<p align="center">
+  <img width="620" alt="Reverse Image Search (Smart Camera) & multi-turn context in VKontakte" src="images/vk_image_search_chat.png" />
+</p>
 
-| Example File | Description |
+---
+
+## 💬 Automation Examples: VKontakte (VK Notify) & Telegram Chatbots
+
+All ready-to-import YAML automations (**100% compatible with Home Assistant's Visual Editor UI blocks**) are available in English under **[`examples/en/`](examples/README.en.md)** (and in Russian under **[`examples/`](examples/README.md)**):
+
+| Example File (EN / RU) | Description |
 | :--- | :--- |
-| 📄 **[`examples/vk_chatbot.yaml`](examples/vk_chatbot.yaml)** | **VKontakte AI Chatbot** ([VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)): natural conversation in DMs + `Bot190` wake word in group chats, `from_id` whitelist, text, voice (`transcript`), and photo attachments (`[image: <url>]`). |
-| 📄 **[`examples/vk_camera_vision.yaml`](examples/vk_camera_vision.yaml)** | **VKontakte `/камера` Command**: grabs a camera snapshot and sends an AI report via `Qwen3.6 35B Vision`. |
-| 📄 **[`examples/telegram_chatbot.yaml`](examples/telegram_chatbot.yaml)** | **Telegram AI Chatbot** (`telegram_bot`, HA 2026+ schema): natural DM chat + `Bot190` wake word in groups, text & photo support (`telegram_bot.download_file`), `typing` indicator, and message replies. |
-| 📄 **[`examples/ai_task_examples.yaml`](examples/ai_task_examples.yaml)** | Action snippets for `ai_task.generate_image` (*Alice AI ART*) and `ai_task.generate_data` (summaries & camera Vision). |
-| 📖 **[`examples/README.md`](examples/README.md)** | Setup notes and photo privacy controls (`Qwen3.6 Vision` only vs `Reverse Image Search`). |
+| 📄 **[`examples/en/vk_chatbot.yaml`](examples/en/vk_chatbot.yaml)** / **[`ru`](examples/vk_chatbot.yaml)** | **VKontakte AI Chatbot** ([VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)): natural 1-on-1 DM chat + `Bot190` wake word in group chats, text, voice (`transcript`), and photo attachments (`[image: <url>]`) with multi-turn memory. |
+| 📄 **[`examples/en/vk_camera_vision.yaml`](examples/en/vk_camera_vision.yaml)** / **[`ru`](examples/vk_camera_vision.yaml)** | **VKontakte `/camera` Command**: captures a camera snapshot and sends an AI scene report via `Qwen3.6 35B Vision`. |
+| 📄 **[`examples/en/telegram_chatbot.yaml`](examples/en/telegram_chatbot.yaml)** / **[`ru`](examples/telegram_chatbot.yaml)** | **Telegram AI Chatbot** (`telegram_bot`, HA 2026+ schema): replies immediately in DMs (`chat_id > 0`) and on `Bot190` wake word in groups (`chat_id < 0`), supports text & photos (`telegram_bot.download_file`) and `typing` indicator. |
+| 📄 **[`examples/en/ai_task_examples.yaml`](examples/en/ai_task_examples.yaml)** / **[`ru`](examples/ai_task_examples.yaml)** | Action snippets for `ai_task.generate_image` (*Alice AI ART*) and `ai_task.generate_data` (summaries & camera Vision). |
+| 📖 **[`examples/README.en.md`](examples/README.en.md)** / **[`README.md`](examples/README.md)** | 1-minute UI setup guide, model selection tips, and photo privacy controls (`Qwen3.6 Vision` only vs `Reverse Image Search`). |
 
 ---
 
@@ -260,7 +306,7 @@ HA-Yandex-generative_ai_conversation/
 │       ├── stt.py              # Speech-to-Text (Yandex SpeechKit STT)
 │       ├── tts.py              # Streaming Text-to-Speech (SpeechKit v1, v3 & LiveTTS)
 │       └── translations/       # Translations (en.json, ru.json)
-├── examples/                   # Ready-to-use YAML automations (VK, Telegram, AI Task)
+├── examples/                   # Ready-to-use YAML automations (RU + examples/en/ EN)
 ├── images/                     # Documentation screenshots
 ├── API_KEY_GUIDE.md            # Step-by-step guide to obtaining Folder ID & API Key
 ├── CHANGELOG.md                # Release history

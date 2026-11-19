@@ -8,6 +8,8 @@
 - `tts_settings.png` — окно настроек синтеза речи (`Yandex AI TTS`: голос, эмоция, скорость)
 - `assist_pipeline.png` — окно настройки голосового ассистента (**Assist**) с выбранными `Yandex AI Conversation`, `Yandex AI STT` и `Yandex AI TTS` (выбор языка и голоса)
 - `assist_chat.png` — пример диалога с ассистентом (управление светом / запрос температуры в комнате)
+- `assist_web_search_weather.png`, `assist_web_search_rates.png` — примеры работы Поиска Яндекса (`web_search`) со ссылками на источники
+- `vk_image_search_chat.png` — обезличенный пример работы Поиска по картинке (`image_search` / «Умная камера») и уточняющего диалога в контексте во ВКонтакте
 
 ### Для `API_KEY_GUIDE.md`:
 - `yc_folder_id.png` — где найти **Folder ID** (идентификатор каталога) в Yandex Cloud / Yandex AI Studio

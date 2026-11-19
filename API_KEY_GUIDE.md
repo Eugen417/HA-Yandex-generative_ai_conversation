@@ -42,7 +42,7 @@
    - `ai.imageGeneration.user` — для генерации изображений через **Alice AI ART**;
    - `ai.speechkit-stt.user` — для распознавания голоса (**STT**);
    - `ai.speechkit-tts.user` — для синтеза речи (**TTS**);
-   - `search-api.webSearch.user` *(опционально)* — если вы планируете включать переключатель **«Поиск в интернете (Yandex Search)»** для чат-ботов ВКонтакте / Telegram или задач ИИ.
+   - `search-api.webSearch.user` *(опционально)* — если вы планируете включать переключатели **«Поиск в интернете (Yandex Search)»** и/или **«Поиск по картинке (Яндекс Картинки)»** для чат-ботов ВКонтакте / Telegram или задач ИИ.
    *(Альтернативно можно выдать общую роль `ai.editor` + `search-api.webSearch.user` или `editor` на каталог, которая включает все перечисленные права).*
 5. Нажмите **Создать**.
 
@@ -51,7 +51,7 @@
   <img width="750" alt="Создание сервисного аккаунта и назначение ролей" src="images/yc_service_account-1.png" />
 </p>
 
-> 💡 **Для работы Поиска в интернете (`Поиск в интернете / Yandex Search`):** обязательно добавьте роль **`search-api.webSearch.user`** (роль `ai.editor` включает только `ai.*`, но **не** включает доступ к `search-api.*`):
+> 💡 **Для работы Поиска в интернете (`web_search`) и Поиска по картинке (`image_search`):** обязательно добавьте роль **`search-api.webSearch.user`** (роль `ai.editor` включает только `ai.*`, но **не** включает доступ к `search-api.*`):
 
 <p align="center">
   <img width="680" alt="Выдача роли search-api.webSearch.user сервисному аккаунту" src="images/yc_web_search_role.png" />

@@ -14,6 +14,11 @@ triggers:
 conditions:
   - condition: template
     value_template: '{{ trigger.event.data.user_id in [111222333, 444555666] }}'
+  - condition: template
+    value_template: >-
+      {{ (trigger.event.data.chat_id | int(0) > 0)
+         or ((trigger.event.data.text | default(trigger.event.data.caption | default('')))
+             is search('^/?бот\s*190', ignorecase=True)) }}
 actions:
   - variables:
       raw_text: >-

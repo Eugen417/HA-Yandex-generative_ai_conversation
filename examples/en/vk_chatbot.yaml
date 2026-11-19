@@ -1,0 +1,61 @@
+alias: 'VK: Yandex AI Smart Chatbot (text, voice & photos)'
+description: '100% compatible with HA Visual Editor (UI blocks): pick your VK chat and Yandex AI agent with a mouse'
+triggers:
+  - trigger: event
+    event_type: vk_notify_text
+    event_data:
+      peer_id: 2000000003
+  - trigger: event
+    event_type: vk_notify_command
+    event_data:
+      peer_id: 2000000003
+conditions:
+  # For group chats — respond only when addressed by wake word "Bot190" / "bot 190" in text or voice transcript.
+  # (If you use this automation in a 1-on-1 Direct Message chat, you can disable this condition in 1 click in the UI!)
+  - condition: template
+    value_template: >-
+      {{ ((trigger.event.data.text | default('')) ~ ' ' ~ (trigger.event.data.transcript | default('')))
+         is search('^/?(bot|бот)\s*190', ignorecase=True) }}
+  - condition: template
+    value_template: '{{ trigger.event.data.from_id | int(0) > 0 }}'
+actions:
+  - variables:
+      raw_text: >-
+        {{ trigger.event.data.text
+           if (trigger.event.data.text | default('') | trim) != ''
+           else (trigger.event.data.transcript | default('')) }}
+      clean_text: >-
+        {{ raw_text
+           | regex_replace(find='^/?(bot|бот)\s*190[,:\s-]*', replace='', ignorecase=True)
+           | trim }}
+      photo_tags: >-
+        {% set photos = (trigger.event.data.attachments | default([]))
+           | selectattr('type', 'defined')
+           | selectattr('type', 'equalto', 'photo')
+           | map(attribute='url') | list %}
+        {% for u in photos %}[image: {{ u }}] {% endfor %}
+      final_prompt: '{{ (clean_text ~ " " ~ (photo_tags | trim)) | trim }}'
+  - action: vk_notify.set_activity
+    target:
+      entity_id: notify.vk_notify_2000000003
+    data:
+      type: typing
+  - action: conversation.process
+    data:
+      agent_id: conversation.yandex_ai_conversation
+      text: '{{ final_prompt }}'
+      conversation_id: vk_2000000003
+    response_variable: ai_answer
+  - if:
+      - condition: template
+        value_template: '{{ ai_answer.response.speech.plain.speech is defined }}'
+    then:
+      - action: vk_notify.send_message
+        target:
+          entity_id: notify.vk_notify_2000000003
+        data:
+          message: '{{ ai_answer.response.speech.plain.speech }}'
+          parse_mode: markdownv2
+          reply_to: '{{ trigger.event.data.conversation_message_id }}'
+mode: queued
+max: 5

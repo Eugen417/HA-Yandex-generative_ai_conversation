@@ -1,0 +1,42 @@
+alias: 'VK: Camera Snapshot & AI Vision Report (/camera)'
+description: '100% HA Visual Editor UI blocks: select your VK chat, camera, and Yandex AI Task service with a mouse'
+triggers:
+  - trigger: event
+    event_type: vk_notify_command
+    event_data:
+      peer_id: 2000000003
+      command: camera
+conditions:
+  - condition: template
+    value_template: '{{ trigger.event.data.from_id | int(0) > 0 }}'
+actions:
+  - action: vk_notify.set_activity
+    target:
+      entity_id: notify.vk_notify_2000000003
+    data:
+      type: typing
+  - action: ai_task.generate_data
+    data:
+      entity_id: ai_task.yandex_ai_task
+      task_name: Front door camera check
+      instructions: >-
+        Briefly describe what is currently visible on the camera, and mention
+        whether there are any people, vehicles, or couriers.
+      attachments:
+        - media_content_id: media-source://camera/camera.front_door
+          media_content_type: image/jpeg
+    response_variable: cam_report
+  - if:
+      - condition: template
+        value_template: '{{ cam_report.data is defined }}'
+    then:
+      - action: vk_notify.send_photo
+        target:
+          entity_id: notify.vk_notify_2000000003
+        data:
+          camera_entity: camera.front_door
+          message: "📷 **AI Camera Report:**\n{{ cam_report.data }}"
+          parse_mode: markdownv2
+          reply_to: '{{ trigger.event.data.conversation_message_id }}'
+mode: queued
+max: 5

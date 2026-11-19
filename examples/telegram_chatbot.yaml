@@ -19,7 +19,7 @@ actions:
       raw_text: >-
         {{ (trigger.event.data.text | default(trigger.event.data.caption | default(''))) | trim }}
       clean_text: >-
-        {{ raw_text | regex_replace(find='^/?бот\s*190\b[,:\s-]*', replace='', ignorecase=True) | trim }}
+        {{ raw_text | regex_replace(find='^/?бот\s*190[,:\s-]*', replace='', ignorecase=True) | trim }}
       has_photo: >-
         {{ trigger.id == 'photo_msg'
            and (trigger.event.data.file_mime_type | default('image/jpeg')).startswith('image/') }}

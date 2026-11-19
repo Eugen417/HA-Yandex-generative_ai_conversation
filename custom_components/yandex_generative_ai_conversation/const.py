@@ -14,10 +14,15 @@ CONF_CHAT_MODEL = "chat_model"
 CONF_IMAGE_MODEL = "image_model"
 CONF_TEMPERATURE = "temperature"
 CONF_MAX_TOKENS = "max_tokens"
+CONF_WEB_SEARCH = "web_search"
+CONF_STREAMING = "streaming"
+CONF_REASONING_EFFORT = "reasoning_effort"
+CONF_DISABLE_DATA_LOGGING = "disable_data_logging"
 
 CONF_TTS_VOICE = "tts_voice"
 CONF_TTS_EMOTION = "tts_emotion"
 CONF_TTS_SPEED = "tts_speed"
+CONF_TTS_PITCH_SHIFT = "tts_pitch_shift"
 
 CONF_STT_MODEL = "stt_model"
 CONF_STT_LANGUAGE = "stt_language"
@@ -27,7 +32,6 @@ DEFAULT_CONVERSATION_NAME = "Yandex AI Conversation"
 DEFAULT_STT_NAME = "Yandex AI STT"
 DEFAULT_TTS_NAME = "Yandex AI TTS"
 DEFAULT_AI_TASK_NAME = "Yandex AI Task"
-DEFAULT_AI_TASK_IMAGE_NAME = "Yandex AI Task image"
 DEFAULT_AI_TASK_IMAGE_NAME = "Yandex AI Task image"
 
 DEFAULT_PROMPT = (
@@ -46,6 +50,19 @@ RECOMMENDED_MAX_TOKENS = 2000
 DEFAULT_TTS_VOICE = "alena"
 DEFAULT_TTS_EMOTION = "good"
 DEFAULT_TTS_SPEED = 1.0
+DEFAULT_TTS_PITCH_SHIFT = 0
+
+DEFAULT_DISABLE_DATA_LOGGING = True
+DEFAULT_WEB_SEARCH = False
+DEFAULT_STREAMING = True
+DEFAULT_REASONING_EFFORT = "none"
+
+REASONING_EFFORT_OPTIONS = [
+    "none",
+    "low",
+    "medium",
+    "high",
+]
 
 DEFAULT_VISION_MODEL = "gemma-3-27b-it/latest"
 
@@ -60,11 +77,11 @@ CHAT_MODELS = [
 ]
 
 CHAT_MODEL_LABELS: dict[str, str] = {
-    "yandexgpt/latest": "YandexGPT Pro (1.20 ₽ / 1K — рекомендуется для управления УД)",
-    "yandexgpt-lite/latest": "YandexGPT Lite (0.20 ₽ / 1K — для текста и AI Task, без сложного управления)",
-    "aliceai-llm/latest": "Alice AI LLM (0.50 ₽ / 1K — диалоговая)",
-    "gemma-3-27b-it/latest": "Gemma 3 27B Vision (0.40 ₽ / 1K — анализ изображений и камер)",
-    "qwen3-235b-a22b-fp8/latest": "Qwen3 235B (0.50 ₽ / 1K)",
+    "yandexgpt/latest": "YandexGPT Pro (1.20 ₽ / 1K — рекомендуется для УД и инструментов)",
+    "yandexgpt-lite/latest": "YandexGPT Lite (0.20 ₽ / 1K — быстрый и экономичный для чатов и AI Task)",
+    "aliceai-llm/latest": "Alice AI LLM (0.50 ₽ / 1K — живая диалоговая модель для чатов и Assist)",
+    "gemma-3-27b-it/latest": "Gemma 3 27B Vision (0.40 ₽ / 1K — мультимодальный чат и анализ камер)",
+    "qwen3-235b-a22b-fp8/latest": "Qwen3 235B (0.50 ₽ / 1K — мощный интеллект, Reasoning и инструменты)",
     "yandexgpt/rc": "YandexGPT Pro RC (1.20 ₽ / 1K)",
     "yandexgpt-lite/rc": "YandexGPT Lite RC (0.20 ₽ / 1K)",
 }
@@ -92,7 +109,7 @@ STT_LANGUAGES = [
     "es-ES",
     "fi-FI",
     "fr-FR",
-    "he-HE",
+    "he-IL",
     "it-IT",
     "nl-NL",
     "pl-PL",
@@ -175,6 +192,9 @@ RECOMMENDED_CONVERSATION_OPTIONS: dict[str, Any] = {
     CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
     CONF_TEMPERATURE: RECOMMENDED_TEMPERATURE,
     CONF_MAX_TOKENS: RECOMMENDED_MAX_TOKENS,
+    CONF_WEB_SEARCH: DEFAULT_WEB_SEARCH,
+    CONF_STREAMING: DEFAULT_STREAMING,
+    CONF_REASONING_EFFORT: DEFAULT_REASONING_EFFORT,
 }
 
 RECOMMENDED_STT_OPTIONS: dict[str, Any] = {
@@ -186,6 +206,7 @@ RECOMMENDED_TTS_OPTIONS: dict[str, Any] = {
     CONF_TTS_VOICE: DEFAULT_TTS_VOICE,
     CONF_TTS_EMOTION: DEFAULT_TTS_EMOTION,
     CONF_TTS_SPEED: DEFAULT_TTS_SPEED,
+    CONF_TTS_PITCH_SHIFT: DEFAULT_TTS_PITCH_SHIFT,
 }
 
 RECOMMENDED_AI_TASK_OPTIONS: dict[str, Any] = {
@@ -193,6 +214,8 @@ RECOMMENDED_AI_TASK_OPTIONS: dict[str, Any] = {
     CONF_CHAT_MODEL: DEFAULT_CHAT_MODEL,
     CONF_TEMPERATURE: RECOMMENDED_TEMPERATURE,
     CONF_MAX_TOKENS: RECOMMENDED_MAX_TOKENS,
+    CONF_WEB_SEARCH: DEFAULT_WEB_SEARCH,
+    CONF_REASONING_EFFORT: DEFAULT_REASONING_EFFORT,
 }
 
 RECOMMENDED_AI_TASK_IMAGE_OPTIONS: dict[str, Any] = {

@@ -26,6 +26,7 @@ from .const import (
     DOMAIN,
 )
 from .entity import YandexAIBaseLLMEntity
+from .helpers import build_yandex_headers
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -134,11 +135,11 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
                 }
             )
 
-        headers = {
-            "Authorization": f"Api-Key {self.api_key}",
-            "Content-Type": "application/json",
-            "OpenAI-Project": self.folder_id,
-        }
+        headers = build_yandex_headers(
+            self.api_key,
+            self.folder_id,
+            disable_data_logging=self.disable_data_logging,
+        )
 
         vision_candidates = [
             f"gpt://{self.folder_id}/{DEFAULT_VISION_MODEL}",
@@ -285,12 +286,11 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
             else f"art://{self.folder_id}/{image_model}"
         )
 
-        headers = {
-            "Authorization": f"Api-Key {self.api_key}",
-            "Content-Type": "application/json",
-            "OpenAI-Project": self.folder_id,
-            "x-folder-id": self.folder_id,
-        }
+        headers = build_yandex_headers(
+            self.api_key,
+            self.folder_id,
+            disable_data_logging=self.disable_data_logging,
+        )
 
         payload = {
             "model": model_uri,

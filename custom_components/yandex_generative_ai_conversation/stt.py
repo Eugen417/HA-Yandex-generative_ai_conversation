@@ -31,6 +31,7 @@ from .const import (
     STT_LANGUAGES,
 )
 from .entity import YandexAIBaseLLMEntity
+from .helpers import build_yandex_headers
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,7 +44,9 @@ _SHORT_LANG_MAP = {
     "es": "es-ES",
     "fi": "fi-FI",
     "fr": "fr-FR",
-    "he": "he-HE",
+    "he": "he-IL",
+    "he-HE": "he-IL",
+    "iw": "he-IL",
     "it": "it-IT",
     "nl": "nl-NL",
     "pl": "pl-PL",
@@ -120,7 +123,12 @@ class YandexSTTEntity(SpeechToTextEntity, YandexAIBaseLLMEntity):
         if not audio_data:
             return SpeechResult("", SpeechResultState.ERROR)
 
-        headers = {"Authorization": f"Api-Key {self.api_key}"}
+        headers = build_yandex_headers(
+            self.api_key,
+            self.folder_id,
+            disable_data_logging=self.disable_data_logging,
+            include_content_type=False,
+        )
 
         is_ogg = (
             metadata.format == AudioFormats.OGG

@@ -92,20 +92,27 @@
 
 Нажмите на значок шестерёнки ⚙️ напротив **Yandex AI Conversation**:
 - **Инструкции (системный промпт):** Задайте характер и правила ответа ассистента.
-- **Управление Home Assistant (`llm_hass_api`):** Выберите **Assist** (а также при желании дополнительные LLM API, например MCP Tools), чтобы разрешить модели управлять устройствами и читать их состояния.
-- **Рекомендуемые настройки модели (`recommended`):** Когда переключатель включён (по умолчанию), поля выбора модели, температуры и токенов скрываются (как в Google Gemini), и автоматически используются оптимальные настройки (`yandexgpt/latest`, `temperature: 0.3`, `max_tokens: 2000`). При отключении переключателя открываются расширенные настройки:
-- **Модель (`chat_model`):**
-  - `yandexgpt/latest` — основная флагманская модель YandexGPT Pro (рекомендуется для голосового управления умным домом);
-  - `yandexgpt-lite/latest` — быстрая и лёгкая модель для текстовых задач и AI Task;
-  - `aliceai-llm/latest` — диалоговая модель Alice AI;
-  - `gemma-3-27b-it/latest` — мультимодальная Vision-модель для анализа изображений и камер;
-  - `qwen3-235b-a22b-fp8/latest` — модель Qwen3 235B в Yandex AI Studio;
-  - `yandexgpt/rc` / `yandexgpt-lite/rc` — релиз-кандидаты новых версий (также поддерживается ввод любого собственного названия модели).
-- **Температура и Max Tokens:** Тонкая настройка креативности и длины ответа.
+- **AI tools (`llm_hass_api`):** Выберите **`Device control` (`Assist`)** (и при желании публичные MCP-серверы, например `HA-MCP Server`), чтобы разрешить модели управлять устройствами и читать их состояния.
+  - ⚠️ **Важно про права `Home Assistant` и голосовые колонки:** системный пункт **`Home Assistant`** в списке `AI tools` даёт полный админский доступ ко всей системе и по правилам безопасности ядра Home Assistant (так же, как в *Google Gemini* и *Ollama*) работает **только у авторизованных администраторов в браузере или мобильном приложении**. На физических голосовых колонках и спутниках (*`ESP32-S3-Box-3`, `Home Assistant Voice PE`, `M5Stack Atom Echo`, `Wyoming`*) отсутствует админский `user_id`, поэтому при отмеченной галочке **`Home Assistant`** ядро HA отклонит запрос колонки с ошибкой `Error getting LLM API ...: Unauthorized`. Для голосовых колонок оставляйте галочку **`Home Assistant` снятой** (используйте `Device control`), а если нужен админский агент для браузера — добавьте второго агента кнопкой `+ Добавить диалоговую систему`.
+  - Если вы создаёте отдельного чистого чат-бота для ВКонтакте или Telegram без доступа к управлению домом — просто очистите поле `AI tools`.
+- **Поиск в интернете (`web_search`, по умолчанию Выкл):** Подключаемый инструмент **Yandex Search** (`GenSearch API v2` / `Responses API`). Рекомендуется **оставлять выключенным** у голосового агента управления домом (для максимальной скорости команд) и **включать** у второго агента для мессенджеров (ВКонтакте / Telegram), чтобы бот отвечал на вопросы о погоде, новостях, курсах валют и расписаниях.
+- **Потоковый ответ (`streaming`, по умолчанию Вкл):** Передача текста по частям (SSE) в реальном времени — голосовой помощник Assist начинает озвучивать ответ с первых слов, не дожидаясь генерации всего текста.
+- **Рекомендуемые настройки модели (`recommended`):** Когда переключатель включён (по умолчанию), используются оптимальные параметры (`yandexgpt/latest`, `temperature: 0.3`, `max_tokens: 2000`). При отключении открываются расширенные настройки (со списком моделей, автоматически дополняемым из `/v1/models`):
+  - **Модель (`chat_model`):** `yandexgpt/latest`, `yandexgpt-lite/latest`, `aliceai-llm/latest`, `gemma-3-27b-it/latest`, `qwen3-235b-a22b-fp8/latest`, `yandexgpt/rc`, `yandexgpt-lite/rc` (или любой собственный URI модели).
+  - **Режим рассуждений (`reasoning_effort`):** `none` (выключен), `low`, `medium`, `high` — глубина предварительных рассуждений для `Qwen3 235B` и новых моделей Яндекса.
+  - **Температура и Max Tokens:** Тонкая настройка креативности и длины ответа.
 
 <p align="center">
-  <img width="600" alt="Настройки Yandex AI Conversation" src="images/conversation_settings.png" />
+  <img width="460" alt="Настройки Yandex AI Conversation" src="images/conversation_settings.png" />
 </p>
+
+#### 💡 Для чего нужны Streaming, Поиск в интернете и Reasoning — и как они влияют на расход токенов?
+
+| Опция | Для чего нужна и где полезна | Влияние на расход токенов и стоимость | Рекомендация |
+| :--- | :--- | :--- | :--- |
+| **Потоковый ответ (`SSE Streaming`)** | Передаёт слова по мере генерации, не дожидаясь конца абзаца. В голосовых колонках и спутниках **Assist** озвучка (`TTS`) стартует через **0.5–1 с** вместо 4–8 с тишины. Для ботов мессенджеров (`conversation.process`) разницы нет, так как ответ отправляется одним сообщением. | **0 ₽ / +0 токенов.** В биллинге Яндекса тарифицируется ровно то же число токенов, что и без стриминга. *(Техническая деталь: если выбранная модель не присылает финальный блок `usage` в SSE-потоке, сенсор в HA оценивает токены расчётно по длине текста; при `Выкл` всегда приходит точное число от сервера).* | Держать **Вкл** для голосового Assist. |
+| **Поиск в интернете (`Yandex Search`)** | Позволяет модели самой запрашивать в Яндексе актуальную погоду, курсы валют ЦБ, новости, цены и расписания с возвратом кликабельных ссылок на источники (`sources`). | **В пассивном режиме** (когда поиск включён, но вопрос бытовой и модель его не вызывает): всего **~100 входных токенов** за описание инструмента.<br>**При срабатывании поиска:**<br>1) оплачивается сам поисковый запрос `GenSearch` (**~0.40 ₽**);<br>2) выполняется **второй проход к LLM**, куда передаётся найденная выдача (+500…2000 токенов) **и повторно весь системный промпт со списком устройств дома**! | **Выкл** на агенте управления домом (чтобы не гонять дважды огромный список лампочек и датчиков). **Вкл** на отдельном втором агенте для чата **ВК / Telegram** с очищенным полем `AI tools`. |
+| **Режим рассуждений (`Reasoning`)** | Включает скрытую цепочку размышлений (`low` / `medium` / `high`) перед ответом у `Qwen3 235B` и новых моделей Яндекса. Повышает точность в сложных логических задачах и аналитике. | **Увеличивает расход в 2–5 раз.** Скрытые рассуждения (`reasoning_content`) не произносятся вслух, но тарифицируются Яндексом как полноценные выходные токены (`completion_tokens`), плюс замедляют первый ответ. | Держать **`none` (Выкл)** для обычного общения и голосовых команд; включать точечно для сложных задач `AI Task` / аналитики. |
 
 ---
 
@@ -147,7 +154,9 @@
    - **Диалоговая система:** `Yandex AI Conversation`
    - *(Рекомендуется)* Включите переключатель **«Предпочитать локальную обработку команд»** — тогда простые типовые команды (*«включи/выключи свет»*) будут выполняться локально за 0 токенов, а сложные запросы пойдут в YandexGPT.
    - **Распознавание речи (STT):** `Yandex AI STT`
-   - **Синтез речи (TTS):** `Yandex AI TTS` -> выберите язык `русский (Россия)` и нужный голос (или комбинацию `Голос (Эмоция)` прямо из выпадающего списка!).
+   - **Синтез речи (TTS):** `Yandex AI TTS` -> выберите язык `русский (Россия)` и нужный голос (или комбинацию `Голос (Эмоция)` прямо из выпадающего списка!). Поддерживается **сквозной потоковый синтез речи по предложениям (`async_stream_tts_audio`)** в бесшовный `WAV PCM` как для голосов v3, так и для классических голосов v1 — колонка начинает говорить первое предложение сразу по мере генерации текста моделью.
+
+> ⚠️ **Напоминание для владельцев голосовых колонок (`ESP32-S3-Box-3`, `Home Assistant Voice PE`, `Atom Echo`, `Wyoming`):** убедитесь, что в настройках выбранного агента `Yandex AI Conversation` в поле **`AI tools`** отмечен **`Device control`**, но **снята** админская галочка **`Home Assistant`** — иначе ядро Home Assistant заблокирует голосовой запрос от устройства с ошибкой `Unauthorized`.
 
 <p align="center">
   <img width="600" alt="Настройка пайплайна Assist" src="images/assist_pipeline.png" />
@@ -222,6 +231,157 @@ response_variable: camera_analysis
 
 ---
 
+## 💬 Примеры автоматизаций: Чат-боты ВКонтакте и Telegram (с Поиском Яндекса)
+
+Благодаря модульной архитектуре `Subentries` лучше всего разделить роли между двумя диалоговыми агентами в карточке интеграции **Yandex AI Studio**:
+1. **`Yandex AI Conversation`** (для голосовых колонок и Assist): `AI tools = Assist`, **`Поиск в интернете = Выкл`** — мгновенное управление светом, климатом и датчиками без лишних задержек.
+2. Нажмите **`+ Добавить диалоговую систему`**, назовите её **`Yandex Бот Чата`** (`conversation.yandex_bot_chata`): очистите `AI tools` (или оставьте нужные), включите **`Поиск в интернете (Yandex Search) = Вкл`** и выберите модель (например, живую `aliceai-llm/latest`, мощную `qwen3-235b-a22b-fp8/latest` или экономичную `yandexgpt-lite/latest`). *(Не забудьте выдать сервисному аккаунту роль `search-api.webSearch.user` — см. [API_KEY_GUIDE.md](API_KEY_GUIDE.md)).*
+
+<p align="center">
+  <img width="390" alt="Пример работы Поиска Яндекса — погода" src="images/assist_web_search_weather.png" />
+  <img width="390" alt="Пример работы Поиска Яндекса — курс валют со ссылками" src="images/assist_web_search_rates.png" />
+</p>
+
+### Пример 1: ИИ-чат во ВКонтакте (текст + голосовые сообщения + веб-поиск) через [VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)
+
+Интеграция **VK Notify** в режиме Long Poll принимает как обычные сообщения (`text`), так и готовые расшифровки голосовых сообщений (`transcript`), умеет показывать статус *«печатает...»* и цитировать исходное сообщение (`reply_to`):
+
+```yaml
+alias: "ВК: Умный чат-бот Yandex AI (живой диалог в ЛС + по имени Бот190 в беседе)"
+description: "В личке отвечает сразу живым диалогом, а в групповой беседе — только при обращении 'Бот190' / 'бот 190'"
+mode: queued
+max: 10
+triggers:
+  - trigger: event
+    event_type: vk_notify_text
+variables:
+  raw_query: >-
+    {{ (trigger.event.data.text
+        if (trigger.event.data.text | default('') | trim) != ''
+        else (trigger.event.data.transcript | default(''))) | trim }}
+  is_private_chat: "{{ (trigger.event.data.peer_id | int(0)) < 2000000000 }}"
+  wake_pattern: "^(?:\\[club\\d+\\|[^\\]]+\\]\\s*)?бот\\s*190\\b[,:\\s-]*"
+  is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
+  clean_query: >-
+    {{ (raw_query | regex_replace(wake_pattern, '', ignorecase=True) | trim)
+       if is_addressed_to_bot else raw_query }}
+conditions:
+  # 1. Защита от чужих чатов (отсекаем не привязанные в VK Notify диалоги)
+  - condition: template
+    value_template: "{{ trigger.event.data.entity_id != 'not_configured' }}"
+  # 2. Белый список VK ID пользователей (укажите свои числовые from_id из ВК)
+  - condition: template
+    value_template: "{{ trigger.event.data.from_id in [123456789, 987654321] }}"
+  # 3. В личке — отвечаем сразу; в групповой беседе — только при обращении "Бот190"
+  - condition: template
+    value_template: "{{ clean_query != '' and (is_private_chat or is_addressed_to_bot) }}"
+actions:
+  - action: vk_notify.set_activity
+    target:
+      entity_id: "{{ trigger.event.data.entity_id }}"
+    data:
+      type: typing
+  - action: conversation.process
+    data:
+      agent_id: conversation.yandex_bot_chata
+      text: "{{ clean_query }}"
+      conversation_id: "vk_{{ trigger.event.data.peer_id }}"
+    response_variable: ai_reply
+  - action: vk_notify.send_message
+    target:
+      entity_id: "{{ trigger.event.data.entity_id }}"
+    data:
+      message: "{{ ai_reply.response.speech.plain.speech }}"
+      parse_mode: markdownv2
+      reply_to: "{{ trigger.event.data.conversation_message_id }}"
+```
+
+### Пример 2: Команда `/камера` во ВКонтакте — снимок + ИИ-описание от Gemma 3 Vision
+
+```yaml
+alias: "ВК: Осмотр камеры по команде /камера"
+mode: queued
+triggers:
+  - trigger: event
+    event_type: vk_notify_command
+    event_data:
+      command: "камера"
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.event.data.entity_id != 'not_configured'
+         and trigger.event.data.from_id in [123456789, 987654321] }}
+actions:
+  - action: vk_notify.set_activity
+    target:
+      entity_id: "{{ trigger.event.data.entity_id }}"
+    data:
+      type: typing
+  - action: ai_task.generate_data
+    data:
+      entity_id: ai_task.yandex_ai_task
+      task_name: "Осмотр двора"
+      instructions: "Кратко опиши на русском языке, что сейчас видно на камере, есть ли люди, машины или курьеры."
+      attachments:
+        - media_content_id: media-source://camera/camera.front_door
+          media_content_type: image/jpeg
+    response_variable: cam_report
+  - action: vk_notify.send_photo
+    target:
+      entity_id: "{{ trigger.event.data.entity_id }}"
+    data:
+      camera_entity: camera.front_door
+      message: "📷 **Отчёт ИИ по камере:**\n{{ cam_report.data }}"
+      parse_mode: markdownv2
+      reply_to: "{{ trigger.event.data.conversation_message_id }}"
+```
+
+### Пример 3: ИИ-чат в Telegram (`telegram_bot`) с Поиском Яндекса и историей диалога
+
+```yaml
+alias: "Telegram: Чат-бот Yandex AI Studio (живой диалог в ЛС + по имени Бот190 в группе)"
+description: "В личном чате отвечает сразу, а в группе — при обращении 'Бот190'"
+mode: queued
+max: 10
+triggers:
+  - trigger: event
+    event_type: telegram_text
+variables:
+  raw_query: "{{ trigger.event.data.text | default('') | trim }}"
+  is_private_chat: "{{ (trigger.event.data.chat_id | int(0)) > 0 }}"
+  wake_pattern: "^(?:@\\w+\\s*)?бот\\s*190\\b[,:\\s-]*"
+  is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
+  clean_query: >-
+    {{ (raw_query | regex_replace(wake_pattern, '', ignorecase=True) | trim)
+       if is_addressed_to_bot else raw_query }}
+conditions:
+  # Белый список разрешённых Telegram user_id
+  - condition: template
+    value_template: "{{ trigger.event.data.user_id in [111222333, 444555666] }}"
+  # В ЛС — живой разговор; в группе — только при обращении "Бот190"
+  - condition: template
+    value_template: "{{ clean_query != '' and (is_private_chat or is_addressed_to_bot) }}"
+actions:
+  - action: telegram_bot.send_chat_action
+    data:
+      chat_id: "{{ trigger.event.data.chat_id }}"
+      chat_action: typing
+  - action: conversation.process
+    data:
+      agent_id: conversation.yandex_bot_chata
+      text: "{{ clean_query }}"
+      conversation_id: "tg_{{ trigger.event.data.chat_id }}"
+    response_variable: ai_reply
+  - action: telegram_bot.send_message
+    data:
+      chat_id: "{{ trigger.event.data.chat_id }}"
+      message: "{{ ai_reply.response.speech.plain.speech }}"
+      parse_mode: plain_text
+      reply_to_message_id: "{{ trigger.event.data.id }}"
+```
+
+---
+
 ## 📂 Структура репозитория
 
 ```text
@@ -236,7 +396,8 @@ HA-Yandex-generative_ai_conversation/
 │       ├── const.py            # Константы, модели и список голосов/эмоций
 │       ├── conversation.py     # Диалоговый агент для Assist
 │       ├── diagnostics.py      # Диагностика интеграции с маскированием ключей
-│       ├── entity.py           # Базовый класс LLM и цикл Tool Calling через ChatLog
+│       ├── entity.py           # Базовый класс LLM, SSE-стриминг и цикл Tool Calling
+│       ├── helpers.py          # Авторизация (Api-Key/IAM), /v1/models и Yandex Search API
 │       ├── manifest.json       # Манифест интеграции
 │       ├── sensor.py           # Сенсоры учёта токенов, запросов и расчётных затрат (RUB)
 │       ├── strings.json        # Строки локализации

@@ -1,16 +1,38 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Service is already configured"
+      "already_configured": "Service is already configured",
+      "reconfigure_successful": "Configuration updated successfully"
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Yandex AI Studio API",
+      "invalid_auth": "Invalid API Key / IAM Token or no access to the specified Folder ID",
+      "unknown": "Unexpected error"
     },
     "step": {
       "user": {
         "title": "Connect Yandex AI Studio",
-        "description": "Enter your Yandex Cloud Folder ID and API Key.",
+        "description": "Enter your Yandex Cloud Folder ID and API Key (or IAM token).",
         "data": {
           "name": "Name",
           "folder_id": "Folder ID",
-          "api_key": "API Key"
+          "api_key": "API Key / IAM Token",
+          "disable_data_logging": "Disable server-side data logging (Privacy)"
+        },
+        "data_description": {
+          "disable_data_logging": "Sends the `x-data-logging-enabled: false` header so smart home prompts and camera snapshots are not stored for model training."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure Yandex AI Studio",
+        "description": "Update your Yandex Cloud Folder ID, API Key (or IAM token), and privacy settings.",
+        "data": {
+          "folder_id": "Folder ID",
+          "api_key": "API Key / IAM Token",
+          "disable_data_logging": "Disable server-side data logging (Privacy)"
+        },
+        "data_description": {
+          "disable_data_logging": "Sends the `x-data-logging-enabled: false` header so smart home prompts and camera snapshots are not stored for model training."
         }
       }
     }
@@ -31,14 +53,20 @@
             "name": "Name",
             "prompt": "Instructions",
             "llm_hass_api": "AI tools",
+            "web_search": "Web Search (Yandex Search)",
+            "streaming": "Stream responses (SSE)",
             "recommended": "Recommended model settings",
             "chat_model": "Model",
+            "reasoning_effort": "Reasoning mode",
             "temperature": "Temperature",
             "max_tokens": "Maximum tokens to return in response"
           },
           "data_description": {
             "prompt": "Instruct how the LLM should respond. This can be a template.",
-            "llm_hass_api": "**Device control** only gives access to entities that you expose to voice assistants. **Home Assistant** has access to everything and only works for admins, not voice assistant devices."
+            "llm_hass_api": "**Device control** gives access to entities exposed to voice assistants and works on physical voice satellites (`ESP32-S3-Box-3`, `Voice PE`, `Wyoming`). ⚠️ **Home Assistant** is restricted by HA Core to **logged-in admins in browser/app only** — do NOT select it on agents assigned to voice satellites (otherwise satellite requests fail with `Unauthorized`). Clear all selections for pure VK / Telegram chatbots.",
+            "web_search": "Allows the agent to search the internet via Yandex Search (`search-api.webSearch.user` role). **Token & cost impact:** adds ~100 input tokens per turn for the tool schema; when triggered, performs a paid search (~0.40 RUB) + a 2nd LLM pass with found web pages (+500–2000 tokens). Keep **Off** on smart-home control agents (with large entity lists) and turn **On** on a separate VK / Telegram bot agent.",
+            "streaming": "Streams text chunks in real time so Assist starts TTS voice playback immediately (~0.5–1s instead of waiting for the full text). **Does NOT increase token usage or billing cost.**",
+            "reasoning_effort": "Depth of internal chain-of-thought reasoning before answering (`Qwen3` and latest Yandex models). **Token impact:** hidden reasoning thoughts are billed as output tokens (`completion_tokens`) and can increase token usage 2–5x."
           }
         }
       }
@@ -77,7 +105,11 @@
             "name": "Name",
             "tts_voice": "Voice",
             "tts_emotion": "Emotion",
-            "tts_speed": "Speed"
+            "tts_speed": "Speed",
+            "tts_pitch_shift": "Pitch shift (v3 voices)"
+          },
+          "data_description": {
+            "tts_pitch_shift": "Voice pitch adjustment in Hz (-1000 to +1000) for 3rd-generation SpeechKit voices."
           }
         }
       }
@@ -95,10 +127,16 @@
         "set_options": {
           "data": {
             "name": "Name",
+            "web_search": "Web Search (Yandex Search)",
             "recommended": "Recommended model settings",
             "chat_model": "Text/Data Model",
+            "reasoning_effort": "Reasoning mode",
             "temperature": "Temperature",
             "max_tokens": "Maximum tokens to return in response"
+          },
+          "data_description": {
+            "web_search": "Allows AI Task to fetch live facts, weather, or news via Yandex Search (~0.40 RUB per search + 2nd LLM pass with search snippets).",
+            "reasoning_effort": "Depth of internal chain-of-thought reasoning before generating output (hidden thoughts are billed as `completion_tokens`)."
           }
         }
       }
@@ -124,3 +162,4 @@
     }
   }
 }
+

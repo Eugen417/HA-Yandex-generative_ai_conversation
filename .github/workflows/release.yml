@@ -24,3 +24,4 @@ jobs:
         with:
           files: yandex_generative_ai_conversation.zip
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') || contains(github.ref_name, 'b') || contains(github.ref_name, 'rc') }}

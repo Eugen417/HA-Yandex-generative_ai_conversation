@@ -100,9 +100,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 elif isinstance(api_val, str):
                     new_data[CONF_LLM_HASS_API] = [api_val]
                     changed = True
-                if str(new_data.get(CONF_CHAT_MODEL, "")).startswith("yandexgpt-lite"):
-                    new_data[CONF_CHAT_MODEL] = DEFAULT_CHAT_MODEL
-                    changed = True
                 if changed:
                     hass.config_entries.async_update_subentry(entry, sub, data=new_data)
 

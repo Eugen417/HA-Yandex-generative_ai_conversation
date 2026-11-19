@@ -25,7 +25,7 @@ from .const import (
     DEFAULT_VISION_MODEL,
     DOMAIN,
 )
-from .entity import YandexAIBaseLLMEntity
+from .entity import YandexAIBaseLLMEntity, estimate_model_cost_rub
 from .helpers import build_yandex_headers
 
 _LOGGER = logging.getLogger(__name__)
@@ -143,12 +143,11 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
 
         vision_candidates = [
             f"gpt://{self.folder_id}/{DEFAULT_VISION_MODEL}",
-            f"gpt://{self.folder_id}/gemma-3-27b-it",
             f"gpt://{self.folder_id}/qwen3.6-35b-a3b/latest",
-            f"gpt://{self.folder_id}/qwen3.6-35b-a3b",
-            f"gpt://{self.folder_id}/qwen2.5-vl-32b-instruct/latest",
-            f"gpt://{self.folder_id}/qwen2.5-vl-32b-instruct",
-            f"gpt://{self.folder_id}/aliceai-llm/latest",
+            f"gpt://{self.folder_id}/deepseek-v4.1-flash",
+            f"gpt://{self.folder_id}/gemma-3-27b-it/latest",
+            f"gpt://{self.folder_id}/gemma-3-27b-it",
+            f"gpt://{self.folder_id}/aliceai-llm",
         ]
 
         try:
@@ -237,7 +236,9 @@ class YandexAITaskEntity(ai_task.AITaskEntity, YandexAIBaseLLMEntity):
                             "tokens": tot_tokens,
                             "input_tokens": in_tokens,
                             "output_tokens": out_tokens,
-                            "cost_rub": tot_tokens * 0.40 / 1000.0,
+                            "cost_rub": estimate_model_cost_rub(
+                                used_model, in_tokens, out_tokens
+                            ),
                             "model": used_model,
                         },
                     )

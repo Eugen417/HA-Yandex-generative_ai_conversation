@@ -21,10 +21,10 @@ A full-featured **Yandex AI Studio (YandexGPT, Alice AI ART, Gemma 3 Vision, and
 
 The integration combines **5 independent AI sub-services** under a single integration entry for **Assist** voice pipelines and smart home automations:
 
-1. 💬 **Conversation Agent (`Yandex AI Conversation`)** powered by **YandexGPT / AliceAI / Qwen3** with full smart home control (Native Tool Calling).
+1. 💬 **Conversation Agent (`Yandex AI Conversation`)** powered by **YandexGPT Pro 5.1 / Alice AI LLM (Flash) / DeepSeek V4.1 Flash (1M) / Qwen3.6 35B** with full smart home control (Native Tool Calling), SSE streaming, and optional Yandex Web Search.
 2. 🎙 **Speech-to-Text (`Yandex AI STT`)** powered by **Yandex SpeechKit**.
-3. 🔊 **Text-to-Speech (`Yandex AI TTS`)** powered by **Yandex SpeechKit** (API v1 + API v3) with selectable language, voice, emotion/role, and speech speed.
-4. 🧠 **AI Task — Text, Structured Data & Vision (`Yandex AI Task`)** — text generation, structured JSON output (**YandexGPT**), and multimodal camera/image analysis (**Gemma 3 27B Vision** — a built-in replacement for `llmvision.image_analyzer`).
+3. 🔊 **Text-to-Speech (`Yandex AI TTS`)** powered by **Yandex SpeechKit** (v1, v3, and 4th-gen **LiveTTS**) with end-to-end sentence streaming.
+4. 🧠 **AI Task — Text, Structured Data & Vision (`Yandex AI Task`)** — text generation, structured JSON output, and multimodal camera/image analysis (**Qwen3.6 35B Vision** — a built-in replacement for `llmvision.image_analyzer`).
 5. 🎨 **AI Task — Image Generation (`Yandex AI Task image`)** — image creation powered by **Alice AI ART (`aliceai-image-art-3.0`)**.
 
 <p align="center">
@@ -93,9 +93,15 @@ Click the gear icon ⚙️ next to **Yandex AI Conversation**:
   - Clear all selections if creating a dedicated messenger chatbot (VK / Telegram) without device control.
 - **Web Search (`web_search`, default Off):** Optional **Yandex Search** tool (`GenSearch API v2` / `Responses API`). Keep **Off** for smart home voice control (for minimal latency) and turn **On** for a second messenger agent (VK / Telegram) so it can answer questions about weather, news, exchange rates, and live events.
 - **Stream responses (`streaming`, default On):** Streams SSE text chunks in real time so Assist starts speaking immediately without waiting for the full completion.
-- **Recommended model settings (`recommended`):** Enabled by default (`yandexgpt/latest`, `temperature: 0.3`, `max_tokens: 2000`). Uncheck to manually configure (dynamically enriched from `/v1/models`):
-  - **Model (`chat_model`):** `yandexgpt/latest`, `yandexgpt-lite/latest`, `aliceai-llm/latest`, `gemma-3-27b-it/latest`, `qwen3-235b-a22b-fp8/latest`, `yandexgpt/rc`, `yandexgpt-lite/rc` (or any custom model URI).
-  - **Reasoning mode (`reasoning_effort`):** `none`, `low`, `medium`, `high` — chain-of-thought reasoning depth for `Qwen3 235B` and latest Yandex models.
+- **Recommended model settings (`recommended`):** Enabled by default (`yandexgpt-5.1`, `temperature: 0.3`, `max_tokens: 2000`). Uncheck to manually configure (dynamically enriched from `/v1/models`):
+  - **Model (`chat_model`) — Base Instance Models (input / output per 1K tokens incl. VAT):**
+    - `yandexgpt-5.1` — **YandexGPT Pro 5.1** (`0.80 / 0.80 RUB`, 32k — flagship for smart home control);
+    - `aliceai-llm-flash` — **Alice AI LLM Flash** (`0.10 / 0.20 RUB`, 64k — ultra-fast & affordable conversational model);
+    - `aliceai-llm` — **Alice AI LLM** (`0.50 / 1.20 RUB`, 128k — natural dialogue);
+    - `deepseek-v4.1-flash` — **DeepSeek V4.1 Flash** (`0.30 / 0.50 RUB`, **1M context** — ideal for agents & MCP);
+    - `qwen3.6-35b-a3b` — **Qwen3.6 35B Vision** (`0.20 / 0.30 RUB`, 256k — multimodal camera/image analysis & structured answers);
+    - `yandexgpt-5-pro` — **YandexGPT Pro 5** (`1.20 / 1.20 RUB`, 32k), plus legacy aliases and any custom model URI.
+  - **Reasoning mode (`reasoning_effort`):** `none`, `low`, `medium`, `high` — chain-of-thought reasoning depth for `Qwen3.6`, `DeepSeek V4.1`, and `Alice AI LLM`.
   - **Temperature & Max Tokens.**
 
 <p align="center">
@@ -107,8 +113,8 @@ Click the gear icon ⚙️ next to **Yandex AI Conversation**:
 | Option | Purpose & Best Use Case | Token & Billing Impact | Recommendation |
 | :--- | :--- | :--- | :--- |
 | **Stream responses (`SSE Streaming`)** | Delivers text chunks in real time as the model generates them. Voice satellites and **Assist** start TTS playback in **~0.5–1s** instead of waiting 4–8s for the full paragraph. Messenger automations (`conversation.process`) receive the final assembled reply either way. | **+0 tokens / 0 extra cost.** Yandex bills the exact same prompt and completion tokens as non-streaming requests. *(Note: if a specific model omits the trailing `usage` chunk in SSE mode, the HA diagnostic sensor estimates tokens from text length; turning streaming `Off` always reports exact server `usage`).* | Keep **On** for voice Assist pipelines. |
-| **Web Search (`Yandex Search`)** | Lets the LLM query Yandex Search (`GenSearch API v2`) for live weather, exchange rates, news, schedules, and prices with clickable source URLs. | **Idle (enabled, not called):** ~100 input tokens per turn for the tool schema.<br>**When triggered:**<br>1) Separate Yandex Search API fee (**~0.40 RUB** per search);<br>2) **Second LLM pass** containing search snippets (+500–2000 tokens) **plus a second copy of the entire system prompt & exposed smart home entities**! | Keep **Off** on your main smart-home control agent (with hundreds of entities). Turn **On** on a separate **VK / Telegram** chatbot agent with `AI tools` cleared. |
-| **Reasoning mode (`Reasoning`)** | Enables internal chain-of-thought thinking (`low` / `medium` / `high`) before answering on `Qwen3 235B` and latest Yandex models. Improves complex logic and structured data accuracy. | **Increases output tokens 2–5x.** Hidden `reasoning_content` thoughts are not spoken aloud, but are billed as `completion_tokens` and add latency. | Keep **`none` (Off)** for everyday voice control; enable selectively for complex `AI Task` or analytical bots. |
+| **Web Search (`Yandex Search`)** | Lets the LLM query Yandex Search (`GenSearch API v2`) for live weather, exchange rates, news, schedules, and prices with clickable source URLs. | **Idle (enabled, not called):** ~100 input tokens per turn for the tool schema.<br>**When triggered:**<br>1) Separate Yandex Search fee (**0.915 RUB** per search);<br>2) **Second LLM pass** containing search snippets (+500–2000 tokens) **plus a second copy of the entire system prompt & exposed smart home entities**! | Keep **Off** on your main smart-home control agent (with hundreds of entities). Turn **On** on a separate **VK / Telegram** chatbot agent with `AI tools` cleared (e.g. using `aliceai-llm-flash`). |
+| **Reasoning mode (`Reasoning`)** | Enables internal chain-of-thought thinking (`low` / `medium` / `high`) before answering on `Qwen3.6`, `DeepSeek V4.1`, and `Alice AI LLM`. Improves complex logic and structured data accuracy. | **Increases output tokens 2–5x.** Hidden `reasoning_content` thoughts are not spoken aloud, but are billed as `completion_tokens` and add latency. | Keep **`none` (Off)** for everyday voice control; enable selectively for complex `AI Task` or analytical bots. |
 
 ### 3. Text-to-Speech Settings (`Yandex AI TTS`)
 Click the gear icon ⚙️ next to **Yandex AI TTS** to select the default voice, emotional role (`good`, `neutral`, `evil`), and speech speed (`0.1`–`3.0`, default `1.0`).
@@ -192,7 +198,7 @@ response_variable: summary
 
 ### Example 3: Camera & Image Vision Analysis (`ai_task.generate_data` + `attachments`)
 
-`Yandex AI Task` supports `SUPPORT_ATTACHMENTS` and automatically analyzes attached camera snapshots or images using **`gemma-3-27b-it/latest`**:
+`Yandex AI Task` supports `SUPPORT_ATTACHMENTS` and automatically analyzes attached camera snapshots or images using **`qwen3.6-35b-a3b`**:
 
 ```yaml
 action: ai_task.generate_data

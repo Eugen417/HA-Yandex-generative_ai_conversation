@@ -68,13 +68,11 @@ def build_yandex_headers(
 
 
 def build_model_uri(folder_id: str, model_name: str, prefix: str = "gpt") -> str:
-    """Build full Yandex model URI (e.g. gpt://<folder_id>/yandexgpt/latest)."""
+    """Build full Yandex model URI (e.g. gpt://<folder_id>/yandexgpt-5.1)."""
     clean_model = model_name.strip()
     if "://" in clean_model:
         return clean_model
     clean_folder = folder_id.strip()
-    if prefix == "gpt" and "/" not in clean_model:
-        clean_model = f"{clean_model}/latest"
     return f"{prefix}://{clean_folder}/{clean_model}"
 
 

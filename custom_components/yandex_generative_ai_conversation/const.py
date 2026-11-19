@@ -39,7 +39,7 @@ DEFAULT_PROMPT = (
     "Отвечай правдиво на вопросы об окружающем мире.\n"
     "Отвечай просто, кратко и по делу обычным текстом на русском языке."
 )
-DEFAULT_CHAT_MODEL = "yandexgpt/latest"
+DEFAULT_CHAT_MODEL = "yandexgpt-5.1"
 DEFAULT_IMAGE_MODEL = "aliceai-image-art-3.0"
 DEFAULT_STT_MODEL = "general"
 DEFAULT_STT_LANGUAGE = "ru-RU"
@@ -64,27 +64,52 @@ REASONING_EFFORT_OPTIONS = [
     "high",
 ]
 
-DEFAULT_VISION_MODEL = "gemma-3-27b-it/latest"
+DEFAULT_VISION_MODEL = "qwen3.6-35b-a3b"
 
 CHAT_MODELS = [
+    "yandexgpt-5.1",
+    "aliceai-llm-flash",
+    "aliceai-llm",
+    "deepseek-v4.1-flash",
+    "qwen3.6-35b-a3b",
+    "yandexgpt-5-pro",
     "yandexgpt/latest",
     "yandexgpt-lite/latest",
-    "aliceai-llm/latest",
     "gemma-3-27b-it/latest",
     "qwen3-235b-a22b-fp8/latest",
-    "yandexgpt/rc",
-    "yandexgpt-lite/rc",
 ]
 
 CHAT_MODEL_LABELS: dict[str, str] = {
-    "yandexgpt/latest": "YandexGPT Pro (1.20 ₽ / 1K — рекомендуется для УД и инструментов)",
-    "yandexgpt-lite/latest": "YandexGPT Lite (0.20 ₽ / 1K — быстрый и экономичный для чатов и AI Task)",
-    "aliceai-llm/latest": "Alice AI LLM (0.50 ₽ / 1K — живая диалоговая модель для чатов и Assist)",
-    "gemma-3-27b-it/latest": "Gemma 3 27B Vision (0.40 ₽ / 1K — мультимодальный чат и анализ камер)",
-    "qwen3-235b-a22b-fp8/latest": "Qwen3 235B (0.50 ₽ / 1K — мощный интеллект, Reasoning и инструменты)",
-    "yandexgpt/rc": "YandexGPT Pro RC (1.20 ₽ / 1K)",
-    "yandexgpt-lite/rc": "YandexGPT Lite RC (0.20 ₽ / 1K)",
+    "yandexgpt-5.1": "YandexGPT Pro 5.1 (0.80 / 0.80 ₽ за 1K — 32k, флагман для УД)",
+    "aliceai-llm-flash": "Alice AI LLM Flash (0.10 / 0.20 ₽ за 1K — 64k, сверхбыстрая для голоса и чатов)",
+    "aliceai-llm": "Alice AI LLM (0.50 / 1.20 ₽ за 1K — 128k, живой диалог)",
+    "deepseek-v4.1-flash": "DeepSeek V4.1 Flash (0.30 / 0.50 ₽ за 1K — 1M контекст, ИИ-агенты и MCP)",
+    "qwen3.6-35b-a3b": "Qwen3.6 35B Vision (0.20 / 0.30 ₽ за 1K — 256k, анализ камер и мультимодальность)",
+    "yandexgpt-5-pro": "YandexGPT Pro 5 (1.20 / 1.20 ₽ за 1K — 32k)",
+    "yandexgpt/latest": "YandexGPT Pro [legacy alias] (1.20 ₽ / 1K)",
+    "yandexgpt-lite/latest": "YandexGPT Lite [legacy] (0.20 ₽ / 1K)",
+    "gemma-3-27b-it/latest": "Gemma 3 27B Vision [legacy] (0.40 ₽ / 1K)",
+    "qwen3-235b-a22b-fp8/latest": "Qwen3 235B [legacy] (0.50 ₽ / 1K)",
 }
+
+# Exact synchronous rates (input_rub_per_1k, output_rub_per_1k) incl. VAT
+MODEL_TOKEN_RATES_PER_1K: list[tuple[str, float, float]] = [
+    ("aliceai-llm-flash", 0.10, 0.20),
+    ("qwen3.6", 0.20, 0.30),
+    ("deepseek-v4.1", 0.30, 0.50),
+    ("deepseek", 0.30, 0.50),
+    ("lite", 0.20, 0.20),
+    ("gemma", 0.40, 0.40),
+    ("qwen3-235b", 0.50, 0.50),
+    ("aliceai-llm", 0.50, 1.20),
+    ("yandexgpt-5.1", 0.80, 0.80),
+    ("yandexgpt/rc", 0.80, 0.80),
+    ("yandexgpt", 1.20, 1.20),
+]
+
+WEB_SEARCH_COST_RUB = 0.915
+TTS_GENERAL_COST_PER_1K_CHARS = 1.32
+TTS_LIVETTS_COST_PER_1K_CHARS = 3.25
 
 IMAGE_MODELS = [
     "aliceai-image-art-3.0",

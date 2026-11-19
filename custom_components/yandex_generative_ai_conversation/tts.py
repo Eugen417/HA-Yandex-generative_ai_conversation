@@ -42,7 +42,9 @@ from .const import (
     DEFAULT_TTS_SPEED,
     DEFAULT_TTS_VOICE,
     DOMAIN,
+    TTS_GENERAL_COST_PER_1K_CHARS,
     TTS_LANGUAGES,
+    TTS_LIVETTS_COST_PER_1K_CHARS,
     TTS_VOICES,
 )
 from .entity import YandexAIBaseLLMEntity
@@ -411,12 +413,17 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
                 if audio_chunks:
                     if self.hass is not None:
                         chars = len(message)
+                        rate = (
+                            TTS_LIVETTS_COST_PER_1K_CHARS
+                            if voice in LIVETTS_VOICE_ROLES
+                            else TTS_GENERAL_COST_PER_1K_CHARS
+                        )
                         async_dispatcher_send(
                             self.hass,
                             f"{DOMAIN}_usage_{self.subentry.subentry_id}",
                             {
                                 "chars": chars,
-                                "cost_rub": chars * 1.32 / 1000.0,
+                                "cost_rub": chars * rate / 1000.0,
                                 "model": voice,
                             },
                         )
@@ -678,12 +685,17 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
                 yield _build_streaming_wav_header(sample_rate) + (b"\x00" * 320)
 
             if total_chars > 0 and self.hass is not None:
+                rate = (
+                    TTS_LIVETTS_COST_PER_1K_CHARS
+                    if voice in LIVETTS_VOICE_ROLES
+                    else TTS_GENERAL_COST_PER_1K_CHARS
+                )
                 async_dispatcher_send(
                     self.hass,
                     f"{DOMAIN}_usage_{self.subentry.subentry_id}",
                     {
                         "chars": total_chars,
-                        "cost_rub": total_chars * 1.32 / 1000.0,
+                        "cost_rub": total_chars * rate / 1000.0,
                         "model": voice,
                     },
                 )

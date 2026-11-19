@@ -64,9 +64,9 @@
           "data_description": {
             "prompt": "Instruct how the LLM should respond. This can be a template.",
             "llm_hass_api": "**Device control** gives access to entities exposed to voice assistants and works on physical voice satellites (`ESP32-S3-Box-3`, `Voice PE`, `Wyoming`). ⚠️ **Home Assistant** is restricted by HA Core to **logged-in admins in browser/app only** — do NOT select it on agents assigned to voice satellites (otherwise satellite requests fail with `Unauthorized`). Clear all selections for pure VK / Telegram chatbots.",
-            "web_search": "Allows the agent to search the internet via Yandex Search (`search-api.webSearch.user` role). **Token & cost impact:** adds ~100 input tokens per turn for the tool schema; when triggered, performs a paid search (~0.40 RUB) + a 2nd LLM pass with found web pages (+500–2000 tokens). Keep **Off** on smart-home control agents (with large entity lists) and turn **On** on a separate VK / Telegram bot agent.",
+            "web_search": "Allows the agent to search the internet via Yandex Search (`search-api.webSearch.user` role). **Token & cost impact:** adds ~100 input tokens per turn for the tool schema; when triggered, performs a paid search (~0.915 RUB) + a 2nd LLM pass with found web pages (+500–2000 tokens). Keep **Off** on smart-home control agents (with large entity lists) and turn **On** on a separate VK / Telegram bot agent.",
             "streaming": "Streams text chunks in real time so Assist starts TTS voice playback immediately (~0.5–1s instead of waiting for the full text). **Does NOT increase token usage or billing cost.**",
-            "reasoning_effort": "Depth of internal chain-of-thought reasoning before answering (`Qwen3` and latest Yandex models). **Token impact:** hidden reasoning thoughts are billed as output tokens (`completion_tokens`) and can increase token usage 2–5x."
+            "reasoning_effort": "Depth of internal chain-of-thought reasoning before answering (`Qwen3.6`, `DeepSeek V4.1`, `Alice AI LLM`). **Token impact:** hidden reasoning thoughts are billed as output tokens (`completion_tokens`) and can increase token usage 2–5x."
           }
         }
       }
@@ -135,7 +135,7 @@
             "max_tokens": "Maximum tokens to return in response"
           },
           "data_description": {
-            "web_search": "Allows AI Task to fetch live facts, weather, or news via Yandex Search (~0.40 RUB per search + 2nd LLM pass with search snippets).",
+            "web_search": "Allows AI Task to fetch live facts, weather, or news via Yandex Search (~0.915 RUB per search + 2nd LLM pass with search snippets).",
             "reasoning_effort": "Depth of internal chain-of-thought reasoning before generating output (hidden thoughts are billed as `completion_tokens`)."
           }
         }

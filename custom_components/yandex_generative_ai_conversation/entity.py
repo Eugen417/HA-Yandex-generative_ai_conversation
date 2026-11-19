@@ -53,8 +53,10 @@ from .const import (
     DEFAULT_VISION_MODEL,
     DEFAULT_WEB_SEARCH,
     DOMAIN,
+    MODEL_TOKEN_RATES_PER_1K,
     RECOMMENDED_MAX_TOKENS,
     RECOMMENDED_TEMPERATURE,
+    WEB_SEARCH_COST_RUB,
 )
 from .helpers import (
     CHAT_COMPLETIONS_URL,
@@ -145,16 +147,15 @@ class _ToolCallsBuffer:
         return result
 
 
-def _estimate_rate_per_1k(model_name: str) -> float:
-    """Return estimated RUB cost per 1K tokens for a Yandex model."""
+def estimate_model_cost_rub(
+    model_name: str, input_tokens: int, output_tokens: int
+) -> float:
+    """Calculate estimated RUB cost using split input/output rates incl. VAT."""
     lowered = model_name.lower()
-    if "lite" in lowered:
-        return 0.20
-    if "gemma" in lowered:
-        return 0.40
-    if "aliceai" in lowered or "qwen" in lowered:
-        return 0.50
-    return 1.20
+    for needle, in_rate, out_rate in MODEL_TOKEN_RATES_PER_1K:
+        if needle in lowered:
+            return (input_tokens * in_rate + output_tokens * out_rate) / 1000.0
+    return (input_tokens * 0.80 + output_tokens * 0.80) / 1000.0
 
 
 
@@ -410,8 +411,7 @@ class YandexAIBaseLLMEntity(Entity):
         """Dispatch token and RUB cost metrics to diagnostic sensors."""
         if self.hass is None or tot_tokens <= 0:
             return
-        rate_per_1k = _estimate_rate_per_1k(model_name)
-        cost_rub = tot_tokens * rate_per_1k / 1000.0
+        cost_rub = estimate_model_cost_rub(model_name, in_tokens, out_tokens)
         async_dispatcher_send(
             self.hass,
             f"{DOMAIN}_usage_{self.subentry.subentry_id}",
@@ -466,7 +466,7 @@ class YandexAIBaseLLMEntity(Entity):
                     f"{DOMAIN}_usage_{self.subentry.subentry_id}",
                     {
                         "tokens": 0,
-                        "cost_rub": 0.40,
+                        "cost_rub": WEB_SEARCH_COST_RUB,
                         "model": f"{model_name} + web_search",
                     },
                 )
@@ -785,7 +785,8 @@ class YandexAIBaseLLMEntity(Entity):
 
             effective_model = model_name
             if has_images and not any(
-                tag in effective_model.lower() for tag in ("gemma", "vl")
+                tag in effective_model.lower()
+                for tag in ("qwen3.6", "deepseek-v4.1", "gemma", "vl")
             ):
                 effective_model = DEFAULT_VISION_MODEL
 

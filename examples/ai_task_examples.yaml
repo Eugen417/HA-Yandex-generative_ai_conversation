@@ -1,0 +1,28 @@
+# Примеры вызовов служб AI Task (для использования в шагах автоматизаций и скриптов)
+
+generate_image_example:
+  action: ai_task.generate_image
+  data:
+    entity_id: ai_task.yandex_ai_task_image
+    task_name: "Погода на сегодня"
+    instructions: "Уютный умный дом в осеннем лесу, мягкий тёплый свет в окнах, кинематографичный стиль"
+  response_variable: generated_image
+
+generate_summary_example:
+  action: ai_task.generate_data
+  data:
+    entity_id: ai_task.yandex_ai_task
+    task_name: "Краткая сводка по дому"
+    instructions: "Составь краткую сводку для утреннего приветствия на основе погоды и температуры в спальне."
+  response_variable: summary
+
+camera_vision_example:
+  action: ai_task.generate_data
+  data:
+    entity_id: ai_task.yandex_ai_task
+    task_name: "Анализ камеры у входа"
+    instructions: "Опиши на русском языке, что происходит на камере. Есть ли люди или машины?"
+    attachments:
+      - media_content_id: media-source://camera/camera.front_door
+        media_content_type: image/jpeg
+  response_variable: camera_analysis

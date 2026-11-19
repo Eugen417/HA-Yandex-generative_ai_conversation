@@ -38,6 +38,7 @@ from .const import (
     CONF_DISABLE_DATA_LOGGING,
     CONF_FOLDER_ID,
     CONF_IMAGE_MODEL,
+    CONF_IMAGE_SEARCH,
     CONF_MAX_TOKENS,
     CONF_REASONING_EFFORT,
     CONF_RECOMMENDED,
@@ -48,6 +49,7 @@ from .const import (
     CONF_WEB_SEARCH,
     DEFAULT_CHAT_MODEL,
     DEFAULT_DISABLE_DATA_LOGGING,
+    DEFAULT_IMAGE_SEARCH,
     DEFAULT_REASONING_EFFORT,
     DEFAULT_STREAMING,
     DEFAULT_VISION_MODEL,
@@ -122,10 +124,14 @@ IMAGE_SEARCH_TOOL_SPEC: dict[str, Any] = {
 }
 
 WEB_SEARCH_SYSTEM_HINT = (
-    "\nТебе доступен поиск в интернете `yandex_web_search` (для актуальных новостей, "
-    "курсов, погоды, цен и фактов). Если пользователь прикрепил фото и просит "
-    "опознать товар, модель, растение, деталь, место или найти где купить — "
-    "дополнительно вызывай поиск по картинке `yandex_image_search`."
+    "\nТебе доступен инструмент поиска в интернете `yandex_web_search`. "
+    "Вызывай его для проверки актуальных новостей, курсов валют, погоды, цен и фактов."
+)
+
+IMAGE_SEARCH_SYSTEM_HINT = (
+    "\nТебе доступен инструмент поиска по картинке `yandex_image_search` (Яндекс Картинки). "
+    "Вызывай его, когда пользователь прислал фото и просит опознать товар, модель, "
+    "растение, деталь, место или найти, где это купить."
 )
 
 
@@ -293,6 +299,7 @@ async def _async_build_chat_messages(
     chat_contents: list[conversation.Content],
     *,
     web_search_enabled: bool = False,
+    image_search_enabled: bool = False,
 ) -> tuple[list[dict[str, Any]], bool, bytes | None]:
     """Convert ChatLog.content into OpenAI-compatible Yandex Chat messages."""
     messages: list[dict[str, Any]] = []
@@ -307,10 +314,13 @@ async def _async_build_chat_messages(
     for idx, content in enumerate(chat_contents):
         if isinstance(content, conversation.SystemContent):
             sys_text = content.content or ""
-            if web_search_enabled and sys_text:
-                sys_text = f"{sys_text}{WEB_SEARCH_SYSTEM_HINT}"
-            elif web_search_enabled:
-                sys_text = WEB_SEARCH_SYSTEM_HINT.strip()
+            extra_hints = ""
+            if web_search_enabled:
+                extra_hints += WEB_SEARCH_SYSTEM_HINT
+            if image_search_enabled:
+                extra_hints += IMAGE_SEARCH_SYSTEM_HINT
+            if extra_hints:
+                sys_text = f"{sys_text}{extra_hints}".strip()
             if sys_text:
                 messages.append({"role": "system", "content": sys_text})
 
@@ -806,6 +816,9 @@ class YandexAIBaseLLMEntity(Entity):
         """Generate an answer for the chat log using Yandex /v1/chat/completions."""
         options = self.subentry.data
         web_search_enabled = bool(options.get(CONF_WEB_SEARCH, DEFAULT_WEB_SEARCH))
+        image_search_enabled = bool(
+            options.get(CONF_IMAGE_SEARCH, DEFAULT_IMAGE_SEARCH)
+        )
         streaming_enabled = (
             self.subentry.subentry_type == "conversation"
             and structure is None
@@ -846,7 +859,10 @@ class YandexAIBaseLLMEntity(Entity):
         for _iteration in range(MAX_TOOL_ITERATIONS):
             base_messages, has_images, latest_image_bytes = (
                 await _async_build_chat_messages(
-                    self.hass, chat_log.content, web_search_enabled=web_search_enabled
+                    self.hass,
+                    chat_log.content,
+                    web_search_enabled=web_search_enabled,
+                    image_search_enabled=image_search_enabled,
                 )
             )
             if (
@@ -866,7 +882,7 @@ class YandexAIBaseLLMEntity(Entity):
 
             turn_tools = list(tools)
             if (
-                web_search_enabled
+                image_search_enabled
                 and latest_image_bytes is not None
                 and IMAGE_SEARCH_TOOL_NAME not in seen_names
             ):

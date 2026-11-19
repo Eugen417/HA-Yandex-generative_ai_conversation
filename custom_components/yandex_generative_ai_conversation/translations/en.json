@@ -53,7 +53,8 @@
             "name": "Name",
             "prompt": "Instructions",
             "llm_hass_api": "AI tools",
-            "web_search": "Web Search (Yandex Search)",
+            "web_search": "Web Search (Yandex Search — text)",
+            "image_search": "Reverse Image Search (Yandex Images — Smart Camera)",
             "streaming": "Stream responses (SSE)",
             "recommended": "Recommended model settings",
             "chat_model": "Model",
@@ -65,6 +66,7 @@
             "prompt": "Instruct how the LLM should respond. This can be a template.",
             "llm_hass_api": "**Device control** gives access to entities exposed to voice assistants and works on physical voice satellites (`ESP32-S3-Box-3`, `Voice PE`, `Wyoming`). ⚠️ **Home Assistant** is restricted by HA Core to **logged-in admins in browser/app only** — do NOT select it on agents assigned to voice satellites (otherwise satellite requests fail with `Unauthorized`). Clear all selections for pure VK / Telegram chatbots.",
             "web_search": "Allows the agent to search the internet via Yandex Search (`search-api.webSearch.user` role). **Token & cost impact:** adds ~100 input tokens per turn for the tool schema; when triggered, performs a paid search (~0.915 RUB) + a 2nd LLM pass with found web pages (+500–2000 tokens). Keep **Off** on smart-home control agents (with large entity lists) and turn **On** on a separate VK / Telegram bot agent.",
+            "image_search": "Allows reverse image search via Yandex Images CBIR (`yandex_image_search`, ~0.915 RUB per search) to identify products, plants, or parts on attached photos. When **Off**, attached photos are analyzed locally by `Qwen3.6 Vision` only without sending them to Yandex Images search.",
             "streaming": "Streams text chunks in real time so Assist starts TTS voice playback immediately (~0.5–1s instead of waiting for the full text). **Does NOT increase token usage or billing cost.**",
             "reasoning_effort": "Depth of internal chain-of-thought reasoning before answering (`Qwen3.6`, `DeepSeek V4.1`, `Alice AI LLM`). **Token impact:** hidden reasoning thoughts are billed as output tokens (`completion_tokens`) and can increase token usage 2–5x."
           }
@@ -127,7 +129,8 @@
         "set_options": {
           "data": {
             "name": "Name",
-            "web_search": "Web Search (Yandex Search)",
+            "web_search": "Web Search (Yandex Search — text)",
+            "image_search": "Reverse Image Search (Yandex Images)",
             "recommended": "Recommended model settings",
             "chat_model": "Text/Data Model",
             "reasoning_effort": "Reasoning mode",
@@ -136,6 +139,7 @@
           },
           "data_description": {
             "web_search": "Allows AI Task to fetch live facts, weather, or news via Yandex Search (~0.915 RUB per search + 2nd LLM pass with search snippets).",
+            "image_search": "Allows AI Task to run reverse image search via Yandex Images CBIR (~0.915 RUB per search) when camera/image attachments are provided.",
             "reasoning_effort": "Depth of internal chain-of-thought reasoning before generating output (hidden thoughts are billed as `completion_tokens`)."
           }
         }

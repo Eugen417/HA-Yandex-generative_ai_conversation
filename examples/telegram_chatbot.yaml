@@ -1,0 +1,65 @@
+# Умный чат-бот Telegram (официальная интеграция telegram_bot, схема Home Assistant 2026+)
+# - В личном чате (chat_id > 0): отвечает сразу на текст и фотографии.
+# - В группе (chat_id < 0): отвечает только при обращении "Бот190" / "бот 190".
+
+alias: "Telegram: Чат-бот Yandex AI Studio (текст и фото)"
+description: "Принимает текст и фотографии в ЛС сразу, а в группе — при обращении 'Бот190'"
+mode: queued
+max: 10
+triggers:
+  - trigger: event
+    event_type: telegram_text
+    id: text_msg
+  - trigger: event
+    event_type: telegram_attachment
+    id: photo_msg
+variables:
+  raw_query: "{{ (trigger.event.data.text | default(trigger.event.data.caption | default(''))) | trim }}"
+  has_photo: >-
+    {{ trigger.id == 'photo_msg'
+       and (trigger.event.data.file_mime_type | default('image/jpeg')).startswith('image/') }}
+  is_private_chat: "{{ (trigger.event.data.chat_id | int(0)) > 0 }}"
+  wake_pattern: "^(?:@\\w+\\s*)?(?:бот|bot)\\s*190\\b[,:\\s-]*"
+  is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
+  clean_query: >-
+    {{ (raw_query | regex_replace(wake_pattern, '', ignorecase=True) | trim)
+       if is_addressed_to_bot else raw_query }}
+conditions:
+  # Белый список разрешённых Telegram user_id (замените на свои!)
+  - condition: template
+    value_template: "{{ trigger.event.data.user_id in [111222333, 444555666] }}"
+  # В ЛС — живой разговор (текст или фото); в группе — при обращении "Бот190"
+  - condition: template
+    value_template: "{{ (clean_query != '' or has_photo) and (is_private_chat or is_addressed_to_bot) }}"
+actions:
+  - action: telegram_bot.send_chat_action
+    data:
+      chat_id: "{{ trigger.event.data.chat_id }}"
+      chat_action: typing
+  - if:
+      - condition: template
+        value_template: "{{ has_photo }}"
+    then:
+      - action: telegram_bot.download_file
+        data:
+          file_id: "{{ trigger.event.data.file_id }}"
+        response_variable: tg_dl
+      - action: conversation.process
+        data:
+          agent_id: conversation.yandex_bot_chata
+          text: "{{ (clean_query ~ ' [image: ' ~ tg_dl.file_path ~ ']') | trim }}"
+          conversation_id: "tg_{{ trigger.event.data.chat_id }}"
+        response_variable: ai_reply
+    else:
+      - action: conversation.process
+        data:
+          agent_id: conversation.yandex_bot_chata
+          text: "{{ clean_query }}"
+          conversation_id: "tg_{{ trigger.event.data.chat_id }}"
+        response_variable: ai_reply
+  - action: telegram_bot.send_message
+    data:
+      chat_id: "{{ trigger.event.data.chat_id }}"
+      message: "{{ ai_reply.response.speech.plain.speech }}"
+      parse_mode: plain_text
+      reply_to_message_id: "{{ trigger.event.data.id }}"

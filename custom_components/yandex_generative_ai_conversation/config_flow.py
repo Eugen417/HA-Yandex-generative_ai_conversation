@@ -38,6 +38,7 @@ from .const import (
     CONF_DISABLE_DATA_LOGGING,
     CONF_FOLDER_ID,
     CONF_IMAGE_MODEL,
+    CONF_IMAGE_SEARCH,
     CONF_MAX_TOKENS,
     CONF_REASONING_EFFORT,
     CONF_RECOMMENDED,
@@ -56,6 +57,7 @@ from .const import (
     DEFAULT_CONVERSATION_NAME,
     DEFAULT_DISABLE_DATA_LOGGING,
     DEFAULT_IMAGE_MODEL,
+    DEFAULT_IMAGE_SEARCH,
     DEFAULT_PROMPT,
     DEFAULT_REASONING_EFFORT,
     DEFAULT_STREAMING,
@@ -482,6 +484,10 @@ def _yandex_config_option_schema(
                     default=options.get(CONF_WEB_SEARCH, DEFAULT_WEB_SEARCH),
                 ): BooleanSelector(),
                 vol.Optional(
+                    CONF_IMAGE_SEARCH,
+                    default=options.get(CONF_IMAGE_SEARCH, DEFAULT_IMAGE_SEARCH),
+                ): BooleanSelector(),
+                vol.Optional(
                     CONF_STREAMING,
                     default=options.get(CONF_STREAMING, DEFAULT_STREAMING),
                 ): BooleanSelector(),
@@ -662,6 +668,10 @@ def _yandex_config_option_schema(
                 vol.Optional(
                     CONF_WEB_SEARCH,
                     default=options.get(CONF_WEB_SEARCH, DEFAULT_WEB_SEARCH),
+                ): BooleanSelector(),
+                vol.Optional(
+                    CONF_IMAGE_SEARCH,
+                    default=options.get(CONF_IMAGE_SEARCH, DEFAULT_IMAGE_SEARCH),
                 ): BooleanSelector(),
                 vol.Optional(
                     CONF_RECOMMENDED,

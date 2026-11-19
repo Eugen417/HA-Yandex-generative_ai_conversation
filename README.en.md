@@ -91,7 +91,8 @@ Click the gear icon ⚙️ next to **Yandex AI Conversation**:
 - **AI tools (`llm_hass_api`):** Select **`Device control` (`Assist`)** (and optionally non-admin MCP servers such as `HA-MCP Server`) to let the model read entity states and control devices.
   - ⚠️ **Important note on `Home Assistant` permissions & voice satellites:** the built-in **`Home Assistant`** option in `AI tools` grants full admin access and is strictly restricted by Home Assistant Core (identical to *Google Gemini* and *Ollama*) to **logged-in administrators in the browser or Companion App**. Physical voice satellites (*`ESP32-S3-Box-3`, `Home Assistant Voice PE`, `M5Stack Atom Echo`, `Wyoming`*) do not carry an admin `user_id`, so enabling **`Home Assistant`** on a satellite's agent will cause HA Core to reject voice requests with `Error getting LLM API ...: Unauthorized`. Keep **`Home Assistant` unchecked** on voice satellite agents (use `Device control` instead), and create a separate `+ Add conversation agent` if you also want an admin-level browser agent.
   - Clear all selections if creating a dedicated messenger chatbot (VK / Telegram) without device control.
-- **Web Search (`web_search`, default Off):** Optional **Yandex Search** tool (`GenSearch API v2` / `Responses API`). Keep **Off** for smart home voice control (for minimal latency) and turn **On** for a second messenger agent (VK / Telegram) so it can answer questions about weather, news, exchange rates, and live events.
+- **Web Search — Text (`web_search`, default Off):** Optional **Yandex Search** tool (`GenSearch API v2`). Keep **Off** on smart-home voice control agents and turn **On** on messenger agents (VK / Telegram).
+- **Reverse Image Search — Smart Camera (`image_search`, default Off):** Independent toggle for **Yandex Images CBIR** (`yandex_image_search`). When **Off**, attached photos are inspected locally by **`Qwen3.6 35B Vision`** only (reading meters, receipts, documents) without sending photos to Yandex Images search.
 - **Stream responses (`streaming`, default On):** Streams SSE text chunks in real time so Assist starts speaking immediately without waiting for the full completion.
 - **Recommended model settings (`recommended`):** Enabled by default (`yandexgpt-5.1`, `temperature: 0.3`, `max_tokens: 2000`). Uncheck to manually configure (dynamically enriched from `/v1/models`):
   - **Model (`chat_model`) — Base Instance Models (input / output per 1K tokens incl. VAT):**
@@ -225,130 +226,15 @@ Thanks to the `Subentries` architecture, you can split responsibilities between 
   <img width="390" alt="Yandex Web Search example — exchange rate with source links" src="images/assist_web_search_rates.png" />
 </p>
 
-### Example 1: VKontakte AI Chatbot (Text + Voice + Photo Vision + Reverse Image Search) via [VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)
+All ready-to-import YAML automations are organized in the **[`examples/`](examples/)** directory:
 
-Passing `[image: <url_or_local_path>]` inside `conversation.process` automatically enables **`Qwen3.6 35B Vision`** analysis plus the **`yandex_image_search`** reverse image search tool (*Yandex Smart Camera / CBIR*) when Web Search is enabled:
-
-```yaml
-alias: "VK: Yandex AI Chatbot (Text, Voice, Photo Vision & Reverse Image Search)"
-mode: queued
-max: 10
-triggers:
-  - trigger: event
-    event_type: vk_notify_text
-variables:
-  raw_query: >-
-    {{ (trigger.event.data.text
-        if (trigger.event.data.text | default('') | trim) != ''
-        else (trigger.event.data.transcript | default(''))) | trim }}
-  photo_tags: >-
-    {% set photos = (trigger.event.data.attachments | default([]))
-       | selectattr('type', 'defined')
-       | selectattr('type', 'equalto', 'photo')
-       | map(attribute='url') | list %}
-    {% for u in photos %}[image: {{ u }}] {% endfor %}
-  is_private_chat: "{{ (trigger.event.data.peer_id | int(0)) < 2000000000 }}"
-  wake_pattern: "^(?:\\[club\\d+\\|[^\\]]+\\]\\s*)?(?:бот|bot)\\s*190\\b[,:\\s-]*"
-  is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
-  clean_query: >-
-    {{ (raw_query | regex_replace(wake_pattern, '', ignorecase=True) | trim)
-       if is_addressed_to_bot else raw_query }}
-  final_prompt: "{{ (clean_query ~ ' ' ~ (photo_tags | trim)) | trim }}"
-conditions:
-  # 1. Ignore messages from unconfigured VK chats
-  - condition: template
-    value_template: "{{ trigger.event.data.entity_id != 'not_configured' }}"
-  # 2. Whitelist allowed VKontakte user IDs (from_id)
-  - condition: template
-    value_template: "{{ trigger.event.data.from_id in [123456789, 987654321] }}"
-  # 3. Direct messages: natural conversation & photos; Group chats: require wake word 'Bot190'
-  - condition: template
-    value_template: "{{ final_prompt != '' and (is_private_chat or is_addressed_to_bot) }}"
-actions:
-  - action: vk_notify.set_activity
-    target:
-      entity_id: "{{ trigger.event.data.entity_id }}"
-    data:
-      type: typing
-  - action: conversation.process
-    data:
-      agent_id: conversation.yandex_bot_chata
-      text: "{{ final_prompt }}"
-      conversation_id: "vk_{{ trigger.event.data.peer_id }}"
-    response_variable: ai_reply
-  - action: vk_notify.send_message
-    target:
-      entity_id: "{{ trigger.event.data.entity_id }}"
-    data:
-      message: "{{ ai_reply.response.speech.plain.speech }}"
-      parse_mode: markdownv2
-      reply_to: "{{ trigger.event.data.conversation_message_id }}"
-```
-
-### Example 2: Telegram AI Chatbot (`telegram_bot` — Text + Photo Vision + Reverse Image Search)
-
-```yaml
-alias: "Telegram: Yandex AI Studio Chatbot (Text + Photo Vision + Image Search)"
-mode: queued
-max: 10
-triggers:
-  - trigger: event
-    event_type: telegram_text
-    id: text_msg
-  - trigger: event
-    event_type: telegram_attachment
-    id: photo_msg
-variables:
-  raw_query: "{{ (trigger.event.data.text | default(trigger.event.data.caption | default(''))) | trim }}"
-  has_photo: >-
-    {{ trigger.id == 'photo_msg'
-       and (trigger.event.data.file_mime_type | default('image/jpeg')).startswith('image/') }}
-  is_private_chat: "{{ (trigger.event.data.chat_id | int(0)) > 0 }}"
-  wake_pattern: "^(?:@\\w+\\s*)?(?:бот|bot)\\s*190\\b[,:\\s-]*"
-  is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
-  clean_query: >-
-    {{ (raw_query | regex_replace(wake_pattern, '', ignorecase=True) | trim)
-       if is_addressed_to_bot else raw_query }}
-conditions:
-  # Whitelist allowed Telegram user IDs
-  - condition: template
-    value_template: "{{ trigger.event.data.user_id in [111222333, 444555666] }}"
-  # Direct messages: natural conversation & photos; Groups: require wake word 'Bot190'
-  - condition: template
-    value_template: "{{ (clean_query != '' or has_photo) and (is_private_chat or is_addressed_to_bot) }}"
-actions:
-  - action: telegram_bot.send_chat_action
-    data:
-      chat_id: "{{ trigger.event.data.chat_id }}"
-      chat_action: typing
-  - if:
-      - condition: template
-        value_template: "{{ has_photo }}"
-    then:
-      - action: telegram_bot.download_file
-        data:
-          file_id: "{{ trigger.event.data.file_id }}"
-        response_variable: tg_dl
-      - action: conversation.process
-        data:
-          agent_id: conversation.yandex_bot_chata
-          text: "{{ (clean_query ~ ' [image: ' ~ tg_dl.file_path ~ ']') | trim }}"
-          conversation_id: "tg_{{ trigger.event.data.chat_id }}"
-        response_variable: ai_reply
-    else:
-      - action: conversation.process
-        data:
-          agent_id: conversation.yandex_bot_chata
-          text: "{{ clean_query }}"
-          conversation_id: "tg_{{ trigger.event.data.chat_id }}"
-        response_variable: ai_reply
-  - action: telegram_bot.send_message
-    data:
-      chat_id: "{{ trigger.event.data.chat_id }}"
-      message: "{{ ai_reply.response.speech.plain.speech }}"
-      parse_mode: plain_text
-      reply_to_message_id: "{{ trigger.event.data.id }}"
-```
+| Example File | Description |
+| :--- | :--- |
+| 📄 **[`examples/vk_chatbot.yaml`](examples/vk_chatbot.yaml)** | **VKontakte AI Chatbot** ([VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)): natural conversation in DMs + `Bot190` wake word in group chats, `from_id` whitelist, text, voice (`transcript`), and photo attachments (`[image: <url>]`). |
+| 📄 **[`examples/vk_camera_vision.yaml`](examples/vk_camera_vision.yaml)** | **VKontakte `/камера` Command**: grabs a camera snapshot and sends an AI report via `Qwen3.6 35B Vision`. |
+| 📄 **[`examples/telegram_chatbot.yaml`](examples/telegram_chatbot.yaml)** | **Telegram AI Chatbot** (`telegram_bot`, HA 2026+ schema): natural DM chat + `Bot190` wake word in groups, text & photo support (`telegram_bot.download_file`), `typing` indicator, and message replies. |
+| 📄 **[`examples/ai_task_examples.yaml`](examples/ai_task_examples.yaml)** | Action snippets for `ai_task.generate_image` (*Alice AI ART*) and `ai_task.generate_data` (summaries & camera Vision). |
+| 📖 **[`examples/README.md`](examples/README.md)** | Setup notes and photo privacy controls (`Qwen3.6 Vision` only vs `Reverse Image Search`). |
 
 ---
 
@@ -363,17 +249,18 @@ HA-Yandex-generative_ai_conversation/
 │       ├── ai_task.py          # AI Task platform (YandexGPT + Vision + Alice AI ART)
 │       ├── brand/              # Local brand icons and logos (icon.png, logo.png)
 │       ├── config_flow.py      # Setup wizard and ConfigSubentryFlow
-│       ├── const.py            # Constants, models, and voices/emotions
+│       ├── const.py            # Constants, models, pricing, and voices/roles
 │       ├── conversation.py     # Conversation agent for Assist
 │       ├── diagnostics.py      # Integration diagnostics with key redaction
-│       ├── entity.py           # Base LLM client, SSE streaming, and Tool Calling loop
-│       ├── helpers.py          # Auth headers (Api-Key/IAM), /v1/models, and Yandex Search
+│       ├── entity.py           # Base LLM client, SSE streaming, Vision & Tool Calling
+│       ├── helpers.py          # Auth headers (Api-Key/IAM), /v1/models, Web & Image Search
 │       ├── manifest.json       # Home Assistant integration manifest
 │       ├── sensor.py           # Token, request, and estimated cost (RUB) sensors
 │       ├── strings.json        # Localization strings
 │       ├── stt.py              # Speech-to-Text (Yandex SpeechKit STT)
-│       ├── tts.py              # Text-to-Speech (Yandex SpeechKit TTS v1 + v3)
+│       ├── tts.py              # Streaming Text-to-Speech (SpeechKit v1, v3 & LiveTTS)
 │       └── translations/       # Translations (en.json, ru.json)
+├── examples/                   # Ready-to-use YAML automations (VK, Telegram, AI Task)
 ├── images/                     # Documentation screenshots
 ├── API_KEY_GUIDE.md            # Step-by-step guide to obtaining Folder ID & API Key
 ├── CHANGELOG.md                # Release history

@@ -1,0 +1,39 @@
+# Осмотр камеры Home Assistant по команде "/камера" во ВКонтакте (интеграция VK Notify)
+# Анализирует кадр через Qwen3.6 35B Vision и отправляет снимок с описанием в чат ВК.
+
+alias: "ВК: Осмотр камеры по команде /камера"
+description: "Делает снимок с камеры, анализирует через Yandex AI Task (Qwen3.6 Vision) и присылает фото с отчётом"
+mode: queued
+triggers:
+  - trigger: event
+    event_type: vk_notify_command
+    event_data:
+      command: "камера"
+conditions:
+  - condition: template
+    value_template: >-
+      {{ trigger.event.data.entity_id != 'not_configured'
+         and trigger.event.data.from_id in [123456789, 987654321] }}
+actions:
+  - action: vk_notify.set_activity
+    target:
+      entity_id: "{{ trigger.event.data.entity_id }}"
+    data:
+      type: typing
+  - action: ai_task.generate_data
+    data:
+      entity_id: ai_task.yandex_ai_task
+      task_name: "Осмотр двора"
+      instructions: "Кратко опиши на русском языке, что сейчас видно на камере, есть ли люди, машины или курьеры."
+      attachments:
+        - media_content_id: media-source://camera/camera.front_door
+          media_content_type: image/jpeg
+    response_variable: cam_report
+  - action: vk_notify.send_photo
+    target:
+      entity_id: "{{ trigger.event.data.entity_id }}"
+    data:
+      camera_entity: camera.front_door
+      message: "📷 **Отчёт ИИ по камере:**\n{{ cam_report.data }}"
+      parse_mode: markdownv2
+      reply_to: "{{ trigger.event.data.conversation_message_id }}"

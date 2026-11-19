@@ -95,7 +95,8 @@
 - **AI tools (`llm_hass_api`):** Выберите **`Device control` (`Assist`)** (и при желании публичные MCP-серверы, например `HA-MCP Server`), чтобы разрешить модели управлять устройствами и читать их состояния.
   - ⚠️ **Важно про права `Home Assistant` и голосовые колонки:** системный пункт **`Home Assistant`** в списке `AI tools` даёт полный админский доступ ко всей системе и по правилам безопасности ядра Home Assistant (так же, как в *Google Gemini* и *Ollama*) работает **только у авторизованных администраторов в браузере или мобильном приложении**. На физических голосовых колонках и спутниках (*`ESP32-S3-Box-3`, `Home Assistant Voice PE`, `M5Stack Atom Echo`, `Wyoming`*) отсутствует админский `user_id`, поэтому при отмеченной галочке **`Home Assistant`** ядро HA отклонит запрос колонки с ошибкой `Error getting LLM API ...: Unauthorized`. Для голосовых колонок оставляйте галочку **`Home Assistant` снятой** (используйте `Device control`), а если нужен админский агент для браузера — добавьте второго агента кнопкой `+ Добавить диалоговую систему`.
   - Если вы создаёте отдельного чистого чат-бота для ВКонтакте или Telegram без доступа к управлению домом — просто очистите поле `AI tools`.
-- **Поиск в интернете (`web_search`, по умолчанию Выкл):** Подключаемый инструмент **Yandex Search** (`GenSearch API v2` / `Responses API`). Рекомендуется **оставлять выключенным** у голосового агента управления домом (для максимальной скорости команд) и **включать** у второго агента для мессенджеров (ВКонтакте / Telegram), чтобы бот отвечал на вопросы о погоде, новостях, курсах валют и расписаниях.
+- **Поиск в интернете — текст (`web_search`, по умолчанию Выкл):** Подключаемый инструмент **Yandex Search** (`GenSearch API v2`). Оставляйте **выключенным** у голосового агента управления домом и **включайте** у второго агента для мессенджеров (ВК / Telegram) для вопросов о погоде, курсах и новостях.
+- **Поиск по картинке — Умная камера (`image_search`, по умолчанию Выкл):** Независимый переключатель обратного поиска по присланному фото в **Яндекс Картинках (`CBIR`)**. Если он **выключен**, присланные в чат фото анализируются только глазами модели **`Qwen3.6 35B Vision`** (чтение счётчиков, чеков, документов) без отправки фото в поисковик.
 - **Потоковый ответ (`streaming`, по умолчанию Вкл):** Передача текста по частям (SSE) в реальном времени — голосовой помощник Assist начинает озвучивать ответ с первых слов, не дожидаясь генерации всего текста.
 - **Рекомендуемые настройки модели (`recommended`):** Когда переключатель включён (по умолчанию), используются оптимальные параметры (`yandexgpt-5.1`, `temperature: 0.3`, `max_tokens: 2000`). При отключении открываются расширенные настройки (со списком моделей, автоматически дополняемым из `/v1/models`):
   - **Модель (`chat_model`) — актуальные модели базового инстанса (вх. / исх. за 1K токенов с НДС):**
@@ -118,6 +119,7 @@
 | :--- | :--- | :--- | :--- |
 | **Потоковый ответ (`SSE Streaming`)** | Передаёт слова по мере генерации, не дожидаясь конца абзаца. В голосовых колонках и спутниках **Assist** озвучка (`TTS`) стартует через **0.5–1 с** вместо 4–8 с тишины. Для ботов мессенджеров (`conversation.process`) разницы нет, так как ответ отправляется одним сообщением. | **0 ₽ / +0 токенов.** В биллинге Яндекса тарифицируется ровно то же число токенов, что и без стриминга. *(Техническая деталь: если выбранная модель не присылает финальный блок `usage` в SSE-потоке, сенсор в HA оценивает токены расчётно по длине текста; при `Выкл` всегда приходит точное число от сервера).* | Держать **Вкл** для голосового Assist. |
 | **Поиск в интернете (`Yandex Search`)** | Позволяет модели самой запрашивать в Яндексе актуальную погоду, курсы валют ЦБ, новости, цены и расписания с возвратом кликабельных ссылок на источники (`sources`). | **В пассивном режиме** (когда поиск включён, но вопрос бытовой и модель его не вызывает): всего **~100 входных токенов** за описание инструмента.<br>**При срабатывании поиска:**<br>1) оплачивается вызов веб-поиска (**0.915 ₽** / запрос по прайсу AI Studio);<br>2) выполняется **второй проход к LLM**, куда передаётся найденная выдача (+500…2000 токенов) **и повторно весь системный промпт со списком устройств дома**! | **Выкл** на агенте управления домом (чтобы не гонять дважды огромный список лампочек и датчиков). **Вкл** на отдельном втором агенте для чата **ВК / Telegram** с очищенным полем `AI tools` (например, на быстрой `aliceai-llm-flash`). |
+| **Поиск по картинке (`Yandex Images`)** | Обратный поиск по присланному фото в базе Яндекс Картинок (`CBIR` — определение точных моделей товаров, растений, деталей со ссылками на магазины). Работает **независимо** от текстового поиска. | **Когда Выкл:** присланные фото смотрит только `Qwen3.6 Vision` (0 ₽ за поиск).<br>**При срабатывании:** **0.915 ₽** за поиск по картинке + 2-й проход к LLM с найденными карточками сайтов. | Держать **Выкл**, если шлёте боту только чеки/счётчики; включать на боте ВК/Telegram, если нужна функция «Умной камеры». |
 | **Режим рассуждений (`Reasoning`)** | Включает скрытую цепочку размышлений (`low` / `medium` / `high`) перед ответом у `Qwen3.6`, `DeepSeek V4.1` и `Alice AI LLM`. Повышает точность в сложных логических задачах и аналитике. | **Увеличивает расход в 2–5 раз.** Скрытые рассуждения (`reasoning_content`) не произносятся вслух, но тарифицируются Яндексом как полноценные выходные токены (`completion_tokens`), плюс замедляют первый ответ. | Держать **`none` (Выкл)** для обычного общения и голосовых команд; включать точечно для сложных задач `AI Task` / аналитики. |
 
 ---
@@ -247,172 +249,15 @@ response_variable: camera_analysis
   <img width="390" alt="Пример работы Поиска Яндекса — курс валют со ссылками" src="images/assist_web_search_rates.png" />
 </p>
 
-### Пример 1: ИИ-чат во ВКонтакте (текст + голосовые + фото Vision + Умная камера Яндекса) через [VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)
+Все готовые к копированию YAML-конфигурации вынесены в отдельную папку **[`examples/`](examples/)**:
 
-Интеграция **VK Notify** в режиме Long Poll принимает обычные сообщения (`text`), расшифровки голосовых (`transcript`) и прямые ссылки на прикреплённые фотографии (`attachments`). Передача тега `[image: <url_или_путь>]` в `conversation.process` автоматически включает анализ фото через **`Qwen3.6 35B Vision`** и инструмент обратного поиска по картинке **`yandex_image_search`** (*«Умная камера Яндекса»* — распознавание товаров, растений, деталей со ссылками на магазины):
-
-```yaml
-alias: "ВК: Умный чат-бот Yandex AI (текст, голос, фото Vision и поиск по картинке)"
-description: "В личке отвечает сразу живым диалогом (включая голые фото), а в беседе — при обращении 'Бот190' / 'бот 190'"
-mode: queued
-max: 10
-triggers:
-  - trigger: event
-    event_type: vk_notify_text
-variables:
-  raw_query: >-
-    {{ (trigger.event.data.text
-        if (trigger.event.data.text | default('') | trim) != ''
-        else (trigger.event.data.transcript | default(''))) | trim }}
-  photo_tags: >-
-    {% set photos = (trigger.event.data.attachments | default([]))
-       | selectattr('type', 'defined')
-       | selectattr('type', 'equalto', 'photo')
-       | map(attribute='url') | list %}
-    {% for u in photos %}[image: {{ u }}] {% endfor %}
-  is_private_chat: "{{ (trigger.event.data.peer_id | int(0)) < 2000000000 }}"
-  wake_pattern: "^(?:\\[club\\d+\\|[^\\]]+\\]\\s*)?бот\\s*190\\b[,:\\s-]*"
-  is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
-  clean_query: >-
-    {{ (raw_query | regex_replace(wake_pattern, '', ignorecase=True) | trim)
-       if is_addressed_to_bot else raw_query }}
-  final_prompt: "{{ (clean_query ~ ' ' ~ (photo_tags | trim)) | trim }}"
-conditions:
-  # 1. Защита от чужих чатов (отсекаем не привязанные в VK Notify диалоги)
-  - condition: template
-    value_template: "{{ trigger.event.data.entity_id != 'not_configured' }}"
-  # 2. Белый список VK ID пользователей (укажите свои числовые from_id из ВК)
-  - condition: template
-    value_template: "{{ trigger.event.data.from_id in [123456789, 987654321] }}"
-  # 3. В личке — отвечаем на любой текст/голос/фото; в беседе — при обращении "Бот190"
-  - condition: template
-    value_template: "{{ final_prompt != '' and (is_private_chat or is_addressed_to_bot) }}"
-actions:
-  - action: vk_notify.set_activity
-    target:
-      entity_id: "{{ trigger.event.data.entity_id }}"
-    data:
-      type: typing
-  - action: conversation.process
-    data:
-      agent_id: conversation.yandex_bot_chata
-      text: "{{ final_prompt }}"
-      conversation_id: "vk_{{ trigger.event.data.peer_id }}"
-    response_variable: ai_reply
-  - action: vk_notify.send_message
-    target:
-      entity_id: "{{ trigger.event.data.entity_id }}"
-    data:
-      message: "{{ ai_reply.response.speech.plain.speech }}"
-      parse_mode: markdownv2
-      reply_to: "{{ trigger.event.data.conversation_message_id }}"
-```
-
-### Пример 2: Команда `/камера` во ВКонтакте — снимок + ИИ-описание от Qwen3.6 35B Vision
-
-```yaml
-alias: "ВК: Осмотр камеры по команде /камера"
-mode: queued
-triggers:
-  - trigger: event
-    event_type: vk_notify_command
-    event_data:
-      command: "камера"
-conditions:
-  - condition: template
-    value_template: >-
-      {{ trigger.event.data.entity_id != 'not_configured'
-         and trigger.event.data.from_id in [123456789, 987654321] }}
-actions:
-  - action: vk_notify.set_activity
-    target:
-      entity_id: "{{ trigger.event.data.entity_id }}"
-    data:
-      type: typing
-  - action: ai_task.generate_data
-    data:
-      entity_id: ai_task.yandex_ai_task
-      task_name: "Осмотр двора"
-      instructions: "Кратко опиши на русском языке, что сейчас видно на камере, есть ли люди, машины или курьеры."
-      attachments:
-        - media_content_id: media-source://camera/camera.front_door
-          media_content_type: image/jpeg
-    response_variable: cam_report
-  - action: vk_notify.send_photo
-    target:
-      entity_id: "{{ trigger.event.data.entity_id }}"
-    data:
-      camera_entity: camera.front_door
-      message: "📷 **Отчёт ИИ по камере:**\n{{ cam_report.data }}"
-      parse_mode: markdownv2
-      reply_to: "{{ trigger.event.data.conversation_message_id }}"
-```
-
-### Пример 3: ИИ-чат в Telegram (`telegram_bot` — текст + приём фото + Поиск Яндекса)
-
-```yaml
-alias: "Telegram: Чат-бот Yandex AI Studio (текст + фото Vision + поиск по картинке)"
-description: "Принимает текст и фотографии в ЛС сразу, а в группе — при обращении 'Бот190'"
-mode: queued
-max: 10
-triggers:
-  - trigger: event
-    event_type: telegram_text
-    id: text_msg
-  - trigger: event
-    event_type: telegram_attachment
-    id: photo_msg
-variables:
-  raw_query: "{{ (trigger.event.data.text | default(trigger.event.data.caption | default(''))) | trim }}"
-  has_photo: >-
-    {{ trigger.id == 'photo_msg'
-       and (trigger.event.data.file_mime_type | default('image/jpeg')).startswith('image/') }}
-  is_private_chat: "{{ (trigger.event.data.chat_id | int(0)) > 0 }}"
-  wake_pattern: "^(?:@\\w+\\s*)?бот\\s*190\\b[,:\\s-]*"
-  is_addressed_to_bot: "{{ raw_query is search(wake_pattern, ignorecase=True) }}"
-  clean_query: >-
-    {{ (raw_query | regex_replace(wake_pattern, '', ignorecase=True) | trim)
-       if is_addressed_to_bot else raw_query }}
-conditions:
-  # Белый список разрешённых Telegram user_id
-  - condition: template
-    value_template: "{{ trigger.event.data.user_id in [111222333, 444555666] }}"
-  # В ЛС — живой разговор (текст или фото); в группе — при обращении "Бот190"
-  - condition: template
-    value_template: "{{ (clean_query != '' or has_photo) and (is_private_chat or is_addressed_to_bot) }}"
-actions:
-  - action: telegram_bot.send_chat_action
-    data:
-      chat_id: "{{ trigger.event.data.chat_id }}"
-      chat_action: typing
-  - if:
-      - condition: template
-        value_template: "{{ has_photo }}"
-    then:
-      - action: telegram_bot.download_file
-        data:
-          file_id: "{{ trigger.event.data.file_id }}"
-        response_variable: tg_dl
-      - action: conversation.process
-        data:
-          agent_id: conversation.yandex_bot_chata
-          text: "{{ (clean_query ~ ' [image: ' ~ tg_dl.file_path ~ ']') | trim }}"
-          conversation_id: "tg_{{ trigger.event.data.chat_id }}"
-        response_variable: ai_reply
-    else:
-      - action: conversation.process
-        data:
-          agent_id: conversation.yandex_bot_chata
-          text: "{{ clean_query }}"
-          conversation_id: "tg_{{ trigger.event.data.chat_id }}"
-        response_variable: ai_reply
-  - action: telegram_bot.send_message
-    data:
-      chat_id: "{{ trigger.event.data.chat_id }}"
-      message: "{{ ai_reply.response.speech.plain.speech }}"
-      parse_mode: plain_text
-      reply_to_message_id: "{{ trigger.event.data.id }}"
-```
+| Готовый файл | Описание сценария |
+| :--- | :--- |
+| 📄 **[`examples/vk_chatbot.yaml`](examples/vk_chatbot.yaml)** | **Умный чат-бот ВКонтакте** ([VK Notify](https://github.com/Eugen417/ha_vk_notify_plus)): живой диалог в ЛС + активация по имени `Бот190` в групповой беседе, белый список `from_id`, поддержка текста, голосовых (`transcript`) и фотографий (`[image: <url>]`). |
+| 📄 **[`examples/vk_camera_vision.yaml`](examples/vk_camera_vision.yaml)** | **Команда `/камера` во ВКонтакте**: снимок с камеры Home Assistant + описание обстановки от `Qwen3.6 35B Vision`. |
+| 📄 **[`examples/telegram_chatbot.yaml`](examples/telegram_chatbot.yaml)** | **Умный чат-бот Telegram** (`telegram_bot`, схема HA 2026+): живой диалог в ЛС + по имени `Бот190` в группе, приём текста и фото (`telegram_bot.download_file`), индикатор `typing` и цитирование. |
+| 📄 **[`examples/ai_task_examples.yaml`](examples/ai_task_examples.yaml)** | Готовые шаблоны вызовов `ai_task.generate_image` (*Alice AI ART*) и `ai_task.generate_data` (сводки и анализ камер). |
+| 📖 **[`examples/README.md`](examples/README.md)** | Подробная инструкция по настройке `from_id` / `user_id` и разграничению режимов обработки фото (только локальный осмотр `Qwen3.6 Vision` vs `Поиск по картинке`). |
 
 ---
 
@@ -424,20 +269,21 @@ HA-Yandex-generative_ai_conversation/
 ├── custom_components/
 │   └── yandex_generative_ai_conversation/
 │       ├── __init__.py         # Инициализация интеграции и управление Subentries
-│       ├── ai_task.py          # Платформа AI Task (YandexGPT + YandexART)
+│       ├── ai_task.py          # Платформа AI Task (YandexGPT + Vision + Alice AI ART)
 │       ├── brand/              # Локальные иконки и логотипы интеграции (icon.png, logo.png)
 │       ├── config_flow.py      # Мастер настройки и ConfigSubentryFlow
-│       ├── const.py            # Константы, модели и список голосов/эмоций
+│       ├── const.py            # Константы, модели, тарифы и список голосов/амплуа
 │       ├── conversation.py     # Диалоговый агент для Assist
 │       ├── diagnostics.py      # Диагностика интеграции с маскированием ключей
-│       ├── entity.py           # Базовый класс LLM, SSE-стриминг и цикл Tool Calling
-│       ├── helpers.py          # Авторизация (Api-Key/IAM), /v1/models и Yandex Search API
+│       ├── entity.py           # Базовый класс LLM, SSE-стриминг, Vision и Tool Calling
+│       ├── helpers.py          # Авторизация (Api-Key/IAM), /v1/models, Web & Image Search
 │       ├── manifest.json       # Манифест интеграции
 │       ├── sensor.py           # Сенсоры учёта токенов, запросов и расчётных затрат (RUB)
 │       ├── strings.json        # Строки локализации
 │       ├── stt.py              # Распознавание речи (Yandex SpeechKit STT)
-│       ├── tts.py              # Синтез речи (Yandex SpeechKit TTS v1 + v3)
+│       ├── tts.py              # Потоковый синтез речи (SpeechKit TTS v1, v3 и LiveTTS)
 │       └── translations/       # Переводы (ru.json, en.json)
+├── examples/                   # Готовые YAML-автоматизации для ВКонтакте, Telegram и AI Task
 ├── images/                     # Папка для скриншотов документации
 ├── API_KEY_GUIDE.md            # Пошаговая инструкция по получению Folder ID и API-ключа
 ├── CHANGELOG.md                # История изменений

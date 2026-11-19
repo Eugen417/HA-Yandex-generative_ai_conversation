@@ -117,21 +117,20 @@ Click the gear icon ⚙️ next to **Yandex AI TTS** to select the default voice
   <img width="600" alt="Yandex AI TTS settings" src="images/tts_settings.png" />
 </p>
 
-#### Available Voices & Emotions (`ru-RU`):
+#### Available Voices & Roles (`ru-RU` — SpeechKit v1 / v3 / LiveTTS):
 
-| Voice | Voice ID | Gender | Supported Emotions |
-| :--- | :--- | :--- | :--- |
-| **Alena** | `alena` | Female | `neutral`, `good` |
-| **Filipp** | `filipp` | Male | `neutral` |
-| **Ermil** | `ermil` | Male | `neutral`, `good` |
-| **Jane** | `jane` | Female | `neutral`, `good`, `evil` |
-| **Omazh** | `omazh` | Female | `neutral`, `evil` |
-| **Zahar** | `zahar` | Male | `neutral`, `good` |
-| **Madirus** | `madirus` | Male | `neutral` |
-| **Dasha / Julia / Lera / Masha / Marina** | `dasha`, `julia`, `lera`, `masha`, `marina` | Female | `neutral` (+ SpeechKit v3 roles) |
-| **Alexander / Kirill / Anton** | `alexander`, `kirill`, `anton` | Male | `neutral` (+ SpeechKit v3 roles) |
+| Voice | Voice ID | Gender | Engine | Supported Roles / Emotions |
+| :--- | :--- | :--- | :--- | :--- |
+| **Irina** | `irina` | Female | **LiveTTS (v3)** | `neutral` *(default)*, `narrator`, `formal`, `support`, `sales` |
+| **Sofia / Vera** | `sofia`, `vera` | Female | **LiveTTS (v3)** | `support` *(default)*, `casual` |
+| **Denis** | `denis` | Male | **LiveTTS (v3)** | `neutral` *(default)*, `casual`, `formal`, `sales` |
+| **Vasily / Sergey** | `vasily`, `sergey` | Male | **LiveTTS (v3)** | `support` *(default)*, `sales` |
+| **Dasha / Julia / Lera / Masha / Marina** | `dasha`, `julia`, `lera`, `masha`, `marina` | Female | SpeechKit v3 | `neutral`, `good`, `friendly`, `strict`, `whisper` |
+| **Alexander / Kirill / Anton** | `alexander`, `kirill`, `anton` | Male | SpeechKit v3 | `neutral`, `good`, `strict` |
+| **Zamira RU / Zhanar RU / Saule RU / Yulduz RU / Madi RU** | `zamira_ru`, `zhanar_ru`, `saule_ru`, `yulduz_ru`, `madi_ru` | F / M | SpeechKit v3 | `neutral`, `friendly`, `strict`, `whisper` |
+| **Alena / Filipp / Ermil / Jane / Omazh / Zahar / Madirus** | `alena`, `filipp`, `ermil`, `jane`, `omazh`, `zahar`, `madirus` | F / M | SpeechKit v1 | `neutral`, `good`, `evil` |
 
-*(Additional supported languages: `en-US` — `john`; `de-DE` — `lea`; `kk-KK` — `amira`, `madi`, `saule`, `zhanar`; `uz-UZ` — `nigora`, `lola`, `yulduz`; `he-IL` — `naomi`.)*
+*(Additional supported languages: `en-US` — `john`; `de-DE` — `lea`; `kk-KK` — `amira`, `madi`, `saule`, `zhanar`; `uz-UZ` — `nigora`, `zamira`, `lola`, `yulduz`; `he-IL` — `naomi` (`modern`, `classic`). Note: `speed` and `pitch_shift` are omitted automatically for `LiveTTS` voices per Yandex API specification.)*
 
 ### 4. Setting Up **Assist** Voice Pipeline
 1. Go to **Settings -> Voice Assistants** and create or edit an assistant.

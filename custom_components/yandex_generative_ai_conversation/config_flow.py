@@ -555,6 +555,12 @@ def _yandex_config_option_schema(
         )
     elif subentry_type == "tts":
         voice_choices = [
+            SelectOptionDict(label="Ирина LiveTTS (Женский — 4 поколение)", value="irina"),
+            SelectOptionDict(label="Софья LiveTTS (Женский — 4 поколение)", value="sofia"),
+            SelectOptionDict(label="Вера LiveTTS (Женский — 4 поколение)", value="vera"),
+            SelectOptionDict(label="Денис LiveTTS (Мужской — 4 поколение)", value="denis"),
+            SelectOptionDict(label="Василий LiveTTS (Мужской — 4 поколение)", value="vasily"),
+            SelectOptionDict(label="Сергей LiveTTS (Мужской — 4 поколение)", value="sergey"),
             SelectOptionDict(label="Алёна (Женский)", value="alena"),
             SelectOptionDict(label="Филипп (Мужской)", value="filipp"),
             SelectOptionDict(label="Эрмил (Мужской)", value="ermil"),
@@ -570,11 +576,20 @@ def _yandex_config_option_schema(
             SelectOptionDict(label="Александр (Мужской)", value="alexander"),
             SelectOptionDict(label="Кирилл (Мужской)", value="kirill"),
             SelectOptionDict(label="Антон (Мужской)", value="anton"),
+            SelectOptionDict(label="Замира RU (Женский)", value="zamira_ru"),
+            SelectOptionDict(label="Жанар RU (Женский)", value="zhanar_ru"),
+            SelectOptionDict(label="Сауле RU (Женский)", value="saule_ru"),
+            SelectOptionDict(label="Юлдуз RU (Женский)", value="yulduz_ru"),
+            SelectOptionDict(label="Мади RU (Мужской)", value="madi_ru"),
             SelectOptionDict(label="John (en-US)", value="john"),
             SelectOptionDict(label="Lea (de-DE)", value="lea"),
             SelectOptionDict(label="Amira (kk-KK)", value="amira"),
             SelectOptionDict(label="Madi (kk-KK)", value="madi"),
+            SelectOptionDict(label="Saule (kk-KK)", value="saule"),
+            SelectOptionDict(label="Zhanar (kk-KK)", value="zhanar"),
             SelectOptionDict(label="Nigora (uz-UZ)", value="nigora"),
+            SelectOptionDict(label="Zamira (uz-UZ)", value="zamira"),
+            SelectOptionDict(label="Yulduz (uz-UZ)", value="yulduz"),
             SelectOptionDict(label="Naomi (he-IL)", value="naomi"),
         ]
         emotion_choices = [
@@ -584,6 +599,13 @@ def _yandex_config_option_schema(
             SelectOptionDict(label="Дружелюбный (friendly — v3)", value="friendly"),
             SelectOptionDict(label="Строгий (strict — v3)", value="strict"),
             SelectOptionDict(label="Шёпот (whisper — v3)", value="whisper"),
+            SelectOptionDict(label="Разговорный (casual — LiveTTS)", value="casual"),
+            SelectOptionDict(label="Рассказчик (narrator — LiveTTS)", value="narrator"),
+            SelectOptionDict(label="Формальный (formal — LiveTTS)", value="formal"),
+            SelectOptionDict(label="Поддержка (support — LiveTTS)", value="support"),
+            SelectOptionDict(label="Продажи (sales — LiveTTS)", value="sales"),
+            SelectOptionDict(label="Современный (modern — Naomi)", value="modern"),
+            SelectOptionDict(label="Классический (classic — Naomi)", value="classic"),
         ]
         schema.update(
             {

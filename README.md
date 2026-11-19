@@ -127,21 +127,20 @@
   <img width="600" alt="Настройки Yandex AI TTS" src="images/tts_settings.png" />
 </p>
 
-#### Доступные голоса и эмоции для `ru-RU`:
+#### Доступные голоса и амплуа для `ru-RU` (SpeechKit v1 / v3 / LiveTTS):
 
-| Голос | ID голоса | Пол | Поддерживаемые эмоции |
-| :--- | :--- | :--- | :--- |
-| **Алёна** | `alena` | Женский | `neutral`, `good` |
-| **Филипп** | `filipp` | Мужской | `neutral` |
-| **Эрмил** | `ermil` | Мужской | `neutral`, `good` |
-| **Джейн** | `jane` | Женский | `neutral`, `good`, `evil` |
-| **Омаж** | `omazh` | Женский | `neutral`, `evil` |
-| **Захар** | `zahar` | Мужской | `neutral`, `good` |
-| **Мадирус** | `madirus` | Мужской | `neutral` |
-| **Даша / Юлия / Лера / Маша / Марина** | `dasha`, `julia`, `lera`, `masha`, `marina` | Женский | `neutral` |
-| **Александр / Кирилл / Антон** | `alexander`, `kirill`, `anton` | Мужской | `neutral` |
+| Голос | ID голоса | Пол | Поколение / Модель | Поддерживаемые амплуа (`role`) |
+| :--- | :--- | :--- | :--- | :--- |
+| **Ирина** | `irina` | Женский | **LiveTTS (v3)** | `neutral` *(по умолч.)*, `narrator`, `formal`, `support`, `sales` |
+| **Софья / Вера** | `sofia`, `vera` | Женский | **LiveTTS (v3)** | `support` *(по умолч.)*, `casual` |
+| **Денис** | `denis` | Мужской | **LiveTTS (v3)** | `neutral` *(по умолч.)*, `casual`, `formal`, `sales` |
+| **Василий / Сергей** | `vasily`, `sergey` | Мужской | **LiveTTS (v3)** | `support` *(по умолч.)*, `sales` |
+| **Даша / Юлия / Лера / Маша / Марина** | `dasha`, `julia`, `lera`, `masha`, `marina` | Женский | SpeechKit v3 | `neutral`, `good`, `friendly`, `strict`, `whisper` *(по голосу)* |
+| **Александр / Кирилл / Антон** | `alexander`, `kirill`, `anton` | Мужской | SpeechKit v3 | `neutral`, `good`, `strict` *(по голосу)* |
+| **Замира RU / Жанар RU / Сауле RU / Юлдуз RU / Мади RU** | `zamira_ru`, `zhanar_ru`, `saule_ru`, `yulduz_ru`, `madi_ru` | Ж / М | SpeechKit v3 | `neutral`, `friendly`, `strict`, `whisper` |
+| **Алёна / Филипп / Эрмил / Джейн / Омаж / Захар / Мадирус** | `alena`, `filipp`, `ermil`, `jane`, `omazh`, `zahar`, `madirus` | Ж / М | SpeechKit v1 | `neutral`, `good`, `evil` *(по голосу)* |
 
-*(Также поддерживаются языки `en-US` — `john`, `de-DE` — `lea`, `kk-KK` — `amira`, `madi`, `saule`, `zhanar`, `uz-UZ` — `nigora`, `lola`, `yulduz`, `he-IL` — `naomi`).*
+*(Также поддерживаются языки `en-US` — `john`, `de-DE` — `lea`, `kk-KK` — `amira`, `madi`, `saule`, `zhanar`, `uz-UZ` — `nigora`, `zamira`, `lola`, `yulduz`, `he-IL` — `naomi` (`modern`, `classic`). Для голосов `LiveTTS` скорость и сдвиг высоты тона управляются самой нейросетью).*
 
 
 ---

@@ -111,7 +111,7 @@ V1_VOICE_EMOTIONS: dict[str, set[str]] = {
 }
 
 V3_VOICE_ROLES: dict[str, set[str]] = {
-    "dasha": {"neutral", "friendly", "whisper"},
+    "dasha": {"neutral", "good", "friendly", "whisper"},
     "julia": {"neutral", "strict"},
     "lera": {"neutral", "friendly"},
     "masha": {"good", "strict", "friendly"},
@@ -119,11 +119,98 @@ V3_VOICE_ROLES: dict[str, set[str]] = {
     "alexander": {"neutral", "good"},
     "kirill": {"neutral", "strict", "good"},
     "anton": {"neutral", "good"},
+    "madi_ru": set(),
+    "saule_ru": {"neutral", "strict", "whisper"},
+    "zamira_ru": {"neutral", "strict", "friendly"},
+    "zhanar_ru": {"neutral", "strict", "friendly"},
+    "yulduz_ru": {"neutral", "strict", "friendly", "whisper"},
     "saule": {"neutral", "strict", "whisper"},
     "zhanar": {"neutral", "friendly"},
+    "zamira": {"neutral", "strict", "friendly"},
     "lola": set(),
     "yulduz": {"neutral", "strict", "friendly", "whisper"},
+    "naomi": {"modern", "classic"},
 }
+
+LIVETTS_VOICE_ROLES: dict[str, set[str]] = {
+    "irina": {"neutral", "formal", "support", "narrator", "sales"},
+    "sofia": {"support", "casual"},
+    "vera": {"support", "casual"},
+    "denis": {"neutral", "casual", "formal", "sales"},
+    "vasily": {"support", "sales"},
+    "sergey": {"support", "sales"},
+}
+
+LIVETTS_DEFAULT_ROLE: dict[str, str] = {
+    "irina": "neutral",
+    "sofia": "support",
+    "vera": "support",
+    "denis": "neutral",
+    "vasily": "support",
+    "sergey": "support",
+}
+
+
+def _build_v3_synthesis_payload(
+    *,
+    text: str,
+    voice: str,
+    emotion: str,
+    speed: str,
+    pitch_shift: float,
+    output_audio_spec: dict[str, Any],
+) -> dict[str, Any]:
+    """Build SpeechKit v3 utteranceSynthesis payload for both general v3 and livetts voices."""
+    if voice in LIVETTS_VOICE_ROLES:
+        allowed_live = LIVETTS_VOICE_ROLES[voice]
+        role = emotion
+        if role in ("good", "friendly") and "casual" in allowed_live:
+            role = "casual"
+        elif role == "strict" and "formal" in allowed_live:
+            role = "formal"
+        if role not in allowed_live:
+            role = LIVETTS_DEFAULT_ROLE[voice]
+        # Note: per Yandex tts.proto, speed and pitch_shift are NOT supported by `livetts`
+        return {
+            "model": "livetts",
+            "text": text,
+            "hints": [
+                {"voice": voice},
+                {"role": role},
+            ],
+            "outputAudioSpec": output_audio_spec,
+            "loudnessNormalizationType": "LUFS",
+            "unsafeMode": True,
+        }
+
+    hints: list[dict[str, Any]] = [
+        {"voice": voice},
+        {"speed": float(speed)},
+    ]
+    if pitch_shift:
+        hints.append({"pitchShift": max(-1000.0, min(1000.0, pitch_shift))})
+
+    allowed_roles = V3_VOICE_ROLES.get(voice, set())
+    role = emotion
+    if role == "good" and "good" not in allowed_roles and "friendly" in allowed_roles:
+        role = "friendly"
+    elif role == "evil" and "evil" not in allowed_roles and "strict" in allowed_roles:
+        role = "strict"
+
+    if role in allowed_roles:
+        hints.append({"role": role})
+    elif "neutral" in allowed_roles:
+        hints.append({"role": "neutral"})
+    elif "modern" in allowed_roles:
+        hints.append({"role": "modern"})
+
+    return {
+        "text": text,
+        "hints": hints,
+        "outputAudioSpec": output_audio_spec,
+        "loudnessNormalizationType": "LUFS",
+        "unsafeMode": True,
+    }
 
 
 async def async_setup_entry(
@@ -213,8 +300,8 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
         except (TypeError, ValueError):
             pitch_shift = 0.0
 
-        # Voices that only exist in SpeechKit API v3
-        if voice in V3_VOICE_ROLES:
+        # Voices that require SpeechKit API v3 (general v3 & 4th-gen LiveTTS)
+        if voice in V3_VOICE_ROLES or voice in LIVETTS_VOICE_ROLES:
             return await self._async_synthesize_v3(
                 message, voice, emotion, speed, pitch_shift
             )
@@ -282,35 +369,18 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
             self.folder_id,
             disable_data_logging=self.disable_data_logging,
         )
-        hints: list[dict[str, Any]] = [
-            {"voice": voice},
-            {"speed": float(speed)},
-        ]
-        if pitch_shift:
-            hints.append({"pitchShift": max(-1000.0, min(1000.0, pitch_shift))})
-        allowed_roles = V3_VOICE_ROLES.get(voice, set())
-        role = emotion
-        if role == "good" and "good" not in allowed_roles and "friendly" in allowed_roles:
-            role = "friendly"
-        elif role == "evil" and "evil" not in allowed_roles and "strict" in allowed_roles:
-            role = "strict"
-
-        if role in allowed_roles:
-            hints.append({"role": role})
-        elif "neutral" in allowed_roles:
-            hints.append({"role": "neutral"})
-
-        payload = {
-            "text": message,
-            "hints": hints,
-            "outputAudioSpec": {
+        payload = _build_v3_synthesis_payload(
+            text=message,
+            voice=voice,
+            emotion=emotion,
+            speed=speed,
+            pitch_shift=pitch_shift,
+            output_audio_spec={
                 "containerAudio": {
                     "containerAudioType": "MP3",
                 }
             },
-            "loudnessNormalizationType": "LUFS",
-            "unsafeMode": True,
-        }
+        )
 
         try:
             session = async_get_clientsession(self.hass)
@@ -455,36 +525,19 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
             self.folder_id,
             disable_data_logging=self.disable_data_logging,
         )
-        hints: list[dict[str, Any]] = [
-            {"voice": voice},
-            {"speed": float(speed)},
-        ]
-        if pitch_shift:
-            hints.append({"pitchShift": max(-1000.0, min(1000.0, pitch_shift))})
-
-        allowed_roles = V3_VOICE_ROLES.get(voice, set())
-        role = emotion
-        if role == "good" and "good" not in allowed_roles and "friendly" in allowed_roles:
-            role = "friendly"
-        elif role == "evil" and "evil" not in allowed_roles and "strict" in allowed_roles:
-            role = "strict"
-        if role in allowed_roles:
-            hints.append({"role": role})
-        elif "neutral" in allowed_roles:
-            hints.append({"role": "neutral"})
-
-        payload = {
-            "text": sentence,
-            "hints": hints,
-            "outputAudioSpec": {
+        payload = _build_v3_synthesis_payload(
+            text=sentence,
+            voice=voice,
+            emotion=emotion,
+            speed=speed,
+            pitch_shift=pitch_shift,
+            output_audio_spec={
                 "rawAudio": {
                     "audioEncoding": "LINEAR16_PCM",
                     "sampleRateHertz": 22050,
                 }
             },
-            "loudnessNormalizationType": "LUFS",
-            "unsafeMode": True,
-        }
+        )
 
         session = async_get_clientsession(self.hass)
         async with session.post(
@@ -541,7 +594,7 @@ class YandexTTSEntity(TextToSpeechEntity, YandexAIBaseLLMEntity):
         voice, emotion, speed, pitch_shift = self._resolve_voice_options(
             request.options
         )
-        is_v3_voice = voice in V3_VOICE_ROLES
+        is_v3_voice = voice in V3_VOICE_ROLES or voice in LIVETTS_VOICE_ROLES
         sample_rate = 22050 if is_v3_voice else 48000
 
         detector = (
